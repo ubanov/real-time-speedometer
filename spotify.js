@@ -20,6 +20,7 @@ const spotifyPrevBtn = document.getElementById('spotifyPrevBtn');
 const spotifyPlayBtn = document.getElementById('spotifyPlayBtn');
 const spotifyNextBtn = document.getElementById('spotifyNextBtn');
 const spotifyOpenLink = document.getElementById('spotifyOpenLink');
+const spotifyTrackLink = document.getElementById('spotifyTrackLink');
 
 let isPlaying = false;
 let nowPlayingTimer = null;
@@ -59,6 +60,7 @@ function renderNoActivePlayback() {
   if (spotifyArtist) spotifyArtist.textContent = '';
   if (spotifyAlbum) spotifyAlbum.src = 'img/icon-192.png';
   if (spotifyOpenLink) spotifyOpenLink.href = 'https://open.spotify.com/';
+  if (spotifyTrackLink) spotifyTrackLink.href = 'https://open.spotify.com/';
   setSpotifyOpenLinkVisible(true);
   renderProgress(0, 0);
 }
@@ -249,11 +251,11 @@ async function refreshNowPlaying() {
     if (spotifyAlbum && data.item.album && data.item.album.images && data.item.album.images[0]) {
       spotifyAlbum.src = data.item.album.images[0].url;
     }
-    if (spotifyOpenLink) {
-      spotifyOpenLink.href = data.item.external_urls && data.item.external_urls.spotify
-        ? data.item.external_urls.spotify
-        : 'https://open.spotify.com/';
-    }
+    const trackUrl = data.item.external_urls && data.item.external_urls.spotify
+      ? data.item.external_urls.spotify
+      : 'https://open.spotify.com/';
+    if (spotifyOpenLink) spotifyOpenLink.href = trackUrl;
+    if (spotifyTrackLink) spotifyTrackLink.href = trackUrl;
     setSpotifyOpenLinkVisible(false);
     if (data.device && data.device.id) {
       lastSpotifyDeviceId = data.device.id;
