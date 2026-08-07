@@ -1,30 +1,182 @@
-<html>
+<!DOCTYPE html>
+<html lang="es">
 <head>
-
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 	<title>Speedometer</title>
 	<link type="text/css" rel="stylesheet" href="style.css">
 
 	<link rel="manifest" href="manifest.json">
-	<link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css" type="text/css"/>   
+	<meta name="theme-color" content="#080808">
 
+	<!-- iOS PWA support -->
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<meta name="apple-mobile-web-app-title" content="Speedometer">
+	<link rel="apple-touch-icon" href="img/newicon.png">
+	<link rel="icon" type="image/png" sizes="512x512" href="img/newicon.png">
+	<link rel="shortcut icon" href="favicon.ico">
 </head>
 <body>
 	<header>
 		<nav>
-			<div class="logo"><h2 data-aos="fade-right"><span>Speed</span>ometer</h2></div>
+			<div class="logo"><h2><span>Speed</span>ometer <small id="version">v0.1</small></h2></div>
 		</nav>
 	</header>
 	<div id="landing">
-		<p data-aos="flip-down"><strong>Alert: Make sure your GPS is activated and refresh after it.</strong></p>
-	<div id="speed" data-aos="zoom-in">0.0</div>
-	<div id="units" data-aos="zoom-in">m.p.h.</div>
+		<p id="status" role="status">Toca «Iniciar» para activar el GPS.</p>
+
+		<div id="dashboard">
+			<div class="widget" id="speedWidget">
+				<button id="startBtn" type="button">Iniciar</button>
+				<div id="gaugeWrap" hidden>
+					<svg id="gauge" viewBox="0 0 200 200" role="img" aria-label="Velocímetro">
+						<defs>
+							<radialGradient id="dialGlow" cx="50%" cy="36%" r="72%">
+								<stop offset="0%" stop-color="#9cecf4" stop-opacity="0.62"></stop>
+								<stop offset="45%" stop-color="#0d6471" stop-opacity="0.5"></stop>
+								<stop offset="100%" stop-color="#03151b" stop-opacity="0.95"></stop>
+							</radialGradient>
+							<linearGradient id="rimShine" x1="15%" y1="0%" x2="85%" y2="100%">
+								<stop offset="0%" stop-color="#ffffff" stop-opacity="0.92"></stop>
+								<stop offset="50%" stop-color="#b5d7db" stop-opacity="0.52"></stop>
+								<stop offset="100%" stop-color="#ffffff" stop-opacity="0.78"></stop>
+							</linearGradient>
+							<filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+								<feGaussianBlur stdDeviation="2.4" result="blur"></feGaussianBlur>
+								<feMerge>
+									<feMergeNode in="blur"></feMergeNode>
+									<feMergeNode in="SourceGraphic"></feMergeNode>
+								</feMerge>
+							</filter>
+						</defs>
+						<circle id="dialFace" cx="100" cy="100" r="93"></circle>
+						<circle id="dialInnerShadow" cx="100" cy="100" r="58"></circle>
+						<circle id="dialRim" cx="100" cy="100" r="96"></circle>
+						<circle id="dialRimInner" cx="100" cy="100" r="88"></circle>
+						<path id="arcGreen" class="arc-zone"></path>
+						<path id="arcYellow" class="arc-zone"></path>
+						<path id="arcRed" class="arc-zone"></path>
+						<g id="ticks"></g>
+						<circle id="needleCover" cx="100" cy="100" r="58"></circle>
+						<line id="needleGlow" x1="37.78" y1="162.22" x2="56.87" y2="143.13"></line>
+						<line id="needle" x1="37.78" y1="162.22" x2="56.87" y2="143.13"></line>
+					</svg>
+					<div id="speedReadout">
+						<button id="unitBtn" type="button" title="Toca para cambiar de unidad">km/h</button>
+						<div id="speed" aria-live="polite">0.0</div>
+					</div>
+					<div id="distanceBox" aria-label="Kilómetros recorridos">
+						<span id="distanceValue">0.0</span>
+						<span>km</span>
+					</div>
+					<div id="gaugeStatus">
+						<div id="gpsIcon" hidden title="GPS activo" aria-label="GPS activo">
+							<svg viewBox="0 0 24 24" width="18" height="18">
+								<path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z"></path>
+								<circle cx="12" cy="9" r="2.5"></circle>
+							</svg>
+						</div>
+						<div id="accuracy">
+							<svg id="accuracyIcon" viewBox="0 0 20 14" width="14" height="10" aria-hidden="true">
+								<rect class="bar1" x="0" y="8" width="4" height="6" rx="1"></rect>
+								<rect class="bar2" x="8" y="4" width="4" height="10" rx="1"></rect>
+								<rect class="bar3" x="16" y="0" width="4" height="14" rx="1"></rect>
+							</svg>
+							<span id="accuracyText"></span>
+						</div>
+					</div>
+				</div>
+				<div id="cornerStats" hidden>
+					<div class="cornerTile cornerTopLeft">
+						<div id="cornerClock">--:--</div>
+						<div class="cornerLabel">Reloj</div>
+					</div>
+					<div class="cornerTile cornerTopRight">
+						<div id="cornerTemp">--°C</div>
+						<div class="cornerLabel">Temp.</div>
+					</div>
+<div class="cornerTile cornerBottomLeft">
+<div class="cornerStatus">
+<span class="cornerIcon" aria-hidden="true">
+<svg viewBox="0 0 24 24" width="18" height="18">
+<path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z"></path>
+<circle cx="12" cy="9" r="2.5"></circle>
+</svg>
+</span>
+<span id="cornerGps">GPS</span>
+</div>
+<div class="cornerLabel">Cobertura</div>
+</div>
+					<div class="cornerTile cornerBottomRight">
+						<div id="cornerDistance">0.0 km</div>
+						<div class="cornerLabel">Km</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="widget" id="leanWidget">
+				<p id="leanPlaceholder" class="widget-placeholder">La inclinación y la aceleración se muestran aquí</p>
+				<div id="leanWrap" hidden>
+					<div id="accelBarWrap">
+						<div id="accelBarTrack">
+							<div id="accelBarFill"></div>
+						</div>
+					</div>
+					<div id="accelReadout">0.00g</div>
+					<svg id="leanGauge" viewBox="0 0 200 200" role="img" aria-label="Inclinación lateral">
+						<path id="leanArcGreen" class="arc-zone"></path>
+						<path id="leanArcYellowL" class="arc-zone"></path>
+						<path id="leanArcYellowR" class="arc-zone"></path>
+						<path id="leanArcRedL" class="arc-zone"></path>
+						<path id="leanArcRedR" class="arc-zone"></path>
+						<g id="leanTicks"></g>
+						<circle id="leanHub" cx="100" cy="130" r="6"></circle>
+						<g id="leanArrow">
+							<line x1="100" y1="138" x2="100" y2="62"></line>
+							<line x1="82" y1="75" x2="118" y2="75"></line>
+						</g>
+						<circle id="leanInvalid" cx="100" cy="130" r="8" hidden></circle>
+					</svg>
+					<div id="leanInfo">
+						<div id="leanReadout">0°</div>
+						<button id="calibrateBtn" type="button" hidden>Calibrar</button>
+					</div>
+				</div>
+			</div>
+
+			<div class="widget" id="spotifyWidget">
+				<button id="spotifyConnectBtn" type="button">Spotify</button>
+				<div id="spotifyControls" hidden>
+					<div id="spotifyMeta">
+						<img id="spotifyAlbum" src="img/icon-192.png" alt="álbum" />
+						<div id="spotifyText">
+							<div id="spotifyTitle">—</div>
+							<div id="spotifyArtist">—</div>
+						</div>
+						<a id="spotifyOpenLink" class="is-hidden" href="https://open.spotify.com/" target="_blank" rel="noopener">Abrir Spotify</a>
+					</div>
+					<div id="spotifyProgressWrap">
+						<span id="spotifyTimeElapsed">0:00</span>
+						<div id="spotifyProgressBar"><div id="spotifyProgressFill"></div></div>
+						<span id="spotifyTimeRemaining">-0:00</span>
+					</div>
+					<div id="spotifyButtons">
+						<button id="spotifyPrevBtn" type="button" aria-label="Anterior"></button>
+						<button id="spotifyPlayBtn" type="button" aria-label="Reproducir o pausar"></button>
+						<button id="spotifyNextBtn" type="button" aria-label="Siguiente"></button>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
-	<script type="application/javascript" src="main.js"></script>
-	<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-    <script>
-         AOS.init({
-         	durnation: 2000,
-         });
-     </script>
+
+	<script src="main.js"></script>
+	<script src="spotify.js"></script>
 </body>
 </html>
+
+
+
+
+

@@ -1,35 +1,635 @@
 'use strict';
 
-const speedDiv = document.getElementById('speed')
+const speedDiv = document.getElementById('speed');
+const distanceValue = document.getElementById('distanceValue');
+const unitBtn = document.getElementById('unitBtn');
+const accuracyText = document.getElementById('accuracyText');
+const accuracyIcon = document.getElementById('accuracyIcon');
+const gpsIcon = document.getElementById('gpsIcon');
+const statusEl = document.getElementById('status');
+const startBtn = document.getElementById('startBtn');
+const gaugeWrap = document.getElementById('gaugeWrap');
+const ticksGroup = document.getElementById('ticks');
+const arcGreen = document.getElementById('arcGreen');
+const arcYellow = document.getElementById('arcYellow');
+const arcRed = document.getElementById('arcRed');
+const needle = document.getElementById('needle');
+const needleGlow = document.getElementById('needleGlow');
+const leanWrap = document.getElementById('leanWrap');
+const leanPlaceholder = document.getElementById('leanPlaceholder');
+const accelBarFill = document.getElementById('accelBarFill');
+const accelReadout = document.getElementById('accelReadout');
+const leanArrow = document.getElementById('leanArrow');
+const leanReadout = document.getElementById('leanReadout');
+const leanInvalid = document.getElementById('leanInvalid');
+const leanTicksGroup = document.getElementById('leanTicks');
+const leanArcGreen = document.getElementById('leanArcGreen');
+const leanArcYellowL = document.getElementById('leanArcYellowL');
+const leanArcYellowR = document.getElementById('leanArcYellowR');
+const leanArcRedL = document.getElementById('leanArcRedL');
+const leanArcRedR = document.getElementById('leanArcRedR');
+const calibrateBtn = document.getElementById('calibrateBtn');
+const cornerStats = document.getElementById('cornerStats');
+const cornerClock = document.getElementById('cornerClock');
+const cornerTemp = document.getElementById('cornerTemp');
+const cornerGps = document.getElementById('cornerGps');
+const cornerDistance = document.getElementById('cornerDistance');
+// Suavizado exponencial basado en tiempo real transcurrido (no en número de
+// lecturas): así la respuesta no depende de la cadencia con la que el GPS
+// entregue posiciones. SPEED_TAU es la "constante de tiempo": con ~1s entre
+// lecturas típico del GPS, converge al valor real en 1-2 lecturas.
+const SPEED_TAU = 0.5;
+const SPEED_STOP_THRESHOLD = 0.3; // m/s por debajo de esto se considera "parado"
 
-// Check for API
-if (!'geolocation' in navigator) {
-  alert('No geolocation API available')
-  speedDiv.innerHTML = 'No API'
-} else {
-	
-  const WID = navigator.geolocation.watchPosition(
-    
-    // Success
-    function (loc) {
-      if (loc.coords.speed) {
-        console.log('Got speed:',loc.coords.speed)
-        // convert to mph and display
-        speedDiv.innerHTML = (2.23693629205*loc.coords.speed).toFixed(1)
-      } else {
-        speedDiv.innerHTML = '0.0'
-      }
-    },
-    
-    // Error
-    function() {
-      console.error('Could not determine GPS position')
-    },
-    
-    // Options
-    {
-      enableHighAccuracy: true,
-    }
-    
-  )
+// greenEnd/yellowEnd/max están alineados con el uso en moto: los límites
+// de km/h son los de referencia (0-120-160-200) y el resto de unidades
+// son la misma frontera física convertida.
+const UNITS = [
+  { key: 'kmh', label: 'km/h', factor: 3.6, max: 200, majorStep: 20, greenEnd: 120, yellowEnd: 160 },
+  { key: 'mph', label: 'mph', factor: 2.23693629205, max: 125, majorStep: 25, greenEnd: 75, yellowEnd: 100 },
+  { key: 'kn', label: 'nudos', factor: 1.94384449244, max: 110, majorStep: 10, greenEnd: 65, yellowEnd: 85 },
+  { key: 'ms', label: 'm/s', factor: 1, max: 60, majorStep: 10, greenEnd: 33, yellowEnd: 44 },
+];
+
+const CENTER = 100;
+const START_ANGLE = -135;
+const END_ANGLE = 135;
+const SWEEP = END_ANGLE - START_ANGLE;
+
+let watchId = null;
+let wakeLock = null;
+let lastFix = null; // { lat, lon, time }
+let smoothedSpeedMs = null;
+let lastSmoothTime = null;
+let unitIndex = Number(localStorage.getItem('speedUnitIndex')) || 0;
+if (unitIndex < 0 || unitIndex >= UNITS.length) unitIndex = 0;
+
+const WEATHER_FETCH_MS = 10 * 60 * 1000;
+let infoTimer = null;
+let distanceKm = 0;
+let temperatureC = null;
+let lastWeatherFetchTime = 0;
+
+// --- Gauge geometry helpers ---
+
+function polarToCartesian(cx, cy, r, angleDeg) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: cx + r * Math.sin(rad), y: cy - r * Math.cos(rad) };
 }
+
+function describeArc(r, startAngle, endAngle) {
+  if (endAngle <= startAngle) return '';
+  const start = polarToCartesian(CENTER, CENTER, r, startAngle);
+  const end = polarToCartesian(CENTER, CENTER, r, endAngle);
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+  return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+}
+
+function angleForValue(value, max) {
+  const clamped = Math.max(0, Math.min(value, max));
+  return START_ANGLE + (clamped / max) * SWEEP;
+}
+
+function buildGauge(unit) {
+  const greenAngle = angleForValue(unit.greenEnd, unit.max);
+  const yellowAngle = angleForValue(unit.yellowEnd, unit.max);
+  arcGreen.setAttribute('d', describeArc(84, START_ANGLE, greenAngle));
+  arcYellow.setAttribute('d', describeArc(84, greenAngle, yellowAngle));
+  arcRed.setAttribute('d', describeArc(84, yellowAngle, END_ANGLE));
+
+  ticksGroup.innerHTML = '';
+  const minorStep = unit.majorStep / 2;
+  for (let v = 0; v <= unit.max; v += minorStep) {
+    const isMajor = v % unit.majorStep === 0;
+    const angle = angleForValue(v, unit.max);
+    const outer = polarToCartesian(CENTER, CENTER, 90, angle);
+    const inner = polarToCartesian(CENTER, CENTER, isMajor ? 77 : 83, angle);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', outer.x);
+    line.setAttribute('y1', outer.y);
+    line.setAttribute('x2', inner.x);
+    line.setAttribute('y2', inner.y);
+    line.setAttribute('class', isMajor ? 'tick-major' : 'tick-minor');
+    ticksGroup.appendChild(line);
+
+    if (isMajor) {
+      const labelPos = polarToCartesian(CENTER, CENTER, 68, angle);
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', labelPos.x);
+      text.setAttribute('y', labelPos.y);
+      text.textContent = String(v);
+      ticksGroup.appendChild(text);
+    }
+  }
+}
+
+function setUnitButtonLabel() {
+  unitBtn.textContent = UNITS[unitIndex].label;
+}
+
+function formatCompactDecimal(value, decimals, decimalClass) {
+  const [integer, decimal] = value.toFixed(decimals).split('.');
+  return `${integer}<span class="${decimalClass}">.${decimal}</span>`;
+}
+
+function renderNeedle(angle) {
+  const inner = polarToCartesian(CENTER, CENTER, 64, angle);
+  const outer = polarToCartesian(CENTER, CENTER, 88, angle);
+  [needleGlow, needle].forEach((line) => {
+    if (!line) return;
+    line.setAttribute('x1', inner.x.toFixed(2));
+    line.setAttribute('y1', inner.y.toFixed(2));
+    line.setAttribute('x2', outer.x.toFixed(2));
+    line.setAttribute('y2', outer.y.toFixed(2));
+  });
+}
+
+function renderSpeed(speedMs) {
+  const unit = UNITS[unitIndex];
+  const displayValue = speedMs * unit.factor;
+  const displayKmh = speedMs * UNITS[0].factor;
+  const valueText = displayKmh >= 20 ? String(Math.round(displayValue)) : formatCompactDecimal(displayValue, 1, 'speedDecimal');
+  if (speedDiv) speedDiv.innerHTML = valueText;
+  renderNeedle(angleForValue(displayValue, unit.max));
+}
+
+function updateInfoPanel() {
+  if (!cornerStats) return;
+
+  const now = new Date();
+  cornerClock.textContent = now.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  cornerTemp.textContent = temperatureC === null ? '--' : `${temperatureC.toFixed(0)}°`;
+  cornerDistance.textContent = `${distanceKm.toFixed(1)}`;
+  if (distanceValue) distanceValue.innerHTML = formatCompactDecimal(distanceKm, 1, 'distanceDecimal');
+
+  if (accuracyText.textContent) {
+    const accuracyNumber = Number.parseFloat(accuracyText.textContent.replace(/±| m/g, ''));
+    if (Number.isFinite(accuracyNumber)) {
+      const quality = accuracyNumber <= 6 ? 'Alta' : accuracyNumber <= 12 ? 'Media' : 'Baja';
+      cornerGps.textContent = quality;
+    } else {
+      cornerGps.textContent = '--';
+    }
+  } else {
+    cornerGps.textContent = '--';
+  }
+}
+
+function startInfoCycler() {
+  clearInterval(infoTimer);
+  infoTimer = window.setInterval(updateInfoPanel, 1000);
+}
+
+async function fetchWeather(lat, lon) {
+  const now = Date.now();
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+  if (temperatureC !== null && now - lastWeatherFetchTime < WEATHER_FETCH_MS) return;
+
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m&timezone=auto`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (typeof data?.current?.temperature_2m === 'number') {
+      temperatureC = data.current.temperature_2m;
+      lastWeatherFetchTime = now;
+      updateInfoPanel();
+    }
+  } catch (err) {
+    console.warn('No se pudo obtener la temperatura:', err);
+  }
+}
+
+unitBtn.addEventListener('click', () => {
+  unitIndex = (unitIndex + 1) % UNITS.length;
+  localStorage.setItem('speedUnitIndex', String(unitIndex));
+  setUnitButtonLabel();
+  buildGauge(UNITS[unitIndex]);
+  renderSpeed(smoothedSpeedMs || 0);
+});
+
+
+// El panel de datos pasa a modo automático para uso en moto.
+startInfoCycler();
+
+// --- Geolocation + speed logic ---
+
+function setStatus(text, tone) {
+  if (tone === 'ok') {
+    // Con GPS activo no hace falta un texto ocupando sitio: un icono en la
+    // esquina del velocímetro basta.
+    statusEl.textContent = '';
+    statusEl.classList.remove('ok', 'error');
+    gpsIcon.hidden = false;
+    return;
+  }
+  gpsIcon.hidden = true;
+  statusEl.textContent = text;
+  statusEl.classList.remove('ok', 'error');
+  if (tone) statusEl.classList.add(tone);
+}
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function handleDistance(lat, lon, timestamp) {
+  if (lastFix && Number.isFinite(lat) && Number.isFinite(lon)) {
+    const dist = haversineMeters(lastFix.lat, lastFix.lon, lat, lon);
+    if (Number.isFinite(dist) && dist < 2000) {
+      distanceKm += dist / 1000;
+    }
+  }
+  lastFix = { lat, lon, time: timestamp };
+  updateInfoPanel();
+}
+
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+  } catch (err) {
+    console.warn('Wake Lock no disponible:', err);
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (wakeLock !== null && document.visibilityState === 'visible' && watchId !== null) {
+    requestWakeLock();
+  }
+});
+
+function handlePosition(loc) {
+  const { coords, timestamp } = loc;
+  let speedMs = coords.speed;
+
+  // iOS Safari a menudo no reporta coords.speed; lo calculamos a partir
+  // de la distancia entre dos posiciones y el tiempo transcurrido.
+  if (speedMs === null || speedMs === undefined) {
+    if (lastFix) {
+      const dt = (timestamp - lastFix.time) / 1000;
+      if (dt > 0.2) {
+        const dist = haversineMeters(lastFix.lat, lastFix.lon, coords.latitude, coords.longitude);
+        speedMs = dist / dt;
+      }
+    }
+  }
+  handleDistance(coords.latitude, coords.longitude, timestamp);
+
+  if (speedMs === null || speedMs === undefined || Number.isNaN(speedMs) || speedMs < SPEED_STOP_THRESHOLD) {
+    speedMs = 0;
+  }
+
+  if (smoothedSpeedMs === null || lastSmoothTime === null) {
+    smoothedSpeedMs = speedMs;
+  } else {
+    const dt = Math.max(0.05, (timestamp - lastSmoothTime) / 1000);
+    const alpha = 1 - Math.exp(-dt / SPEED_TAU);
+    smoothedSpeedMs = alpha * speedMs + (1 - alpha) * smoothedSpeedMs;
+  }
+  lastSmoothTime = timestamp;
+
+  // Si la lectura real ya es "parado", no dejes que quede flotando un resto
+  // asintótico del suavizado (p.ej. 0.4 km/h para siempre).
+  if (speedMs === 0 && smoothedSpeedMs < SPEED_STOP_THRESHOLD) {
+    smoothedSpeedMs = 0;
+  }
+
+  renderSpeed(smoothedSpeedMs);
+
+  if (typeof coords.accuracy === 'number') {
+    accuracyText.textContent = `±${coords.accuracy.toFixed(0)} m`;
+    accuracyIcon.classList.remove('quality-1', 'quality-2', 'quality-3');
+    if (coords.accuracy <= 6) accuracyIcon.classList.add('quality-3');
+    else if (coords.accuracy <= 12) accuracyIcon.classList.add('quality-2');
+    else accuracyIcon.classList.add('quality-1');
+  }
+
+  void fetchWeather(coords.latitude, coords.longitude);
+  updateInfoPanel();
+  setStatus('GPS activo', 'ok');
+}
+
+function handleError(err) {
+  lastFix = null;
+  smoothedSpeedMs = null;
+  lastSmoothTime = null;
+  switch (err.code) {
+    case err.PERMISSION_DENIED:
+      setStatus('Permiso de ubicación denegado. Actívalo en Ajustes > Safari > Ubicación y vuelve a tocar Iniciar.', 'error');
+      break;
+    case err.POSITION_UNAVAILABLE:
+      setStatus('Posición no disponible. Comprueba que el GPS esté activado.', 'error');
+      break;
+    case err.TIMEOUT:
+      setStatus('Tiempo de espera agotado buscando señal GPS.', 'error');
+      break;
+    default:
+      setStatus('Error obteniendo la ubicación.', 'error');
+  }
+}
+
+// --- Inclinación lateral (lean angle) ---
+
+const LEAN_RANGE = 60; // grados validos mostrados a cada lado
+const LEAN_ARC_MAX = 60;
+const LEAN_GREEN = 30;
+const LEAN_YELLOW = 45;
+const LEAN_SIGN = -1; // invertido para que derecha/izquierda coincidan con la moto
+const LEAN_CENTER_X = 100;
+const LEAN_CENTER_Y = 130;
+
+// No guardamos un ángulo absoluto: guardamos el vector de gravedad (x,y) tal
+// cual estaba cuando empezaste a rodar (o cuando calibras), y medimos cuánto
+// ha girado desde ahí. Así el "0°" es siempre tu posición de referencia real,
+// sin importar si el montaje es vertical u horizontal, y no hay riesgo de que
+// la posición neutra caiga justo en el punto de corte ±180° (que es lo que
+// causaba el salto de un lado a otro).
+let leanRefX = null;
+let leanRefY = null;
+let lastGravityX = 0;
+let lastGravityY = 0;
+let smoothedLean = 0;
+let lastLeanTime = null;
+
+// --- Aceleración (medidor "gracioso" de G's, sin uso de mount específico) ---
+const G = 9.80665;
+const ACCEL_MAX_G = 1.2; // escala de la barra: llena al 100% a partir de esta g
+const ACCEL_DEADZONE_G = 0.03; // por debajo de esto, se muestra 0.00 (ruido del sensor en reposo)
+const ACCEL_SIGN = -1; // cambia a 1 si acelerar/frenar salen invertidos en tu montaje
+let smoothedAccelG = 0;
+let lastAccelTime = null;
+
+// El sensor dispara decenas de veces por segundo; ni conviene pintar tan
+// a menudo (parpadeo/mareo visual) ni la CSS transition aguanta bien que
+// se reinicie constantemente (eso es lo que hacía que "se viera lento":
+// cada evento reiniciaba la animación antes de que acabara la anterior).
+// MOTION_TAU controla cuánto tarda en converger el valor suavizado
+// (independiente de la frecuencia real del sensor); MOTION_RENDER_MS
+// limita cuántas veces por segundo tocamos el DOM/CSS.
+const MOTION_TAU = 0.12;
+const MOTION_RENDER_MS = 150;
+let lastMotionRenderTime = 0;
+
+function getScreenOrientationAngle() {
+  const angle = screen.orientation && typeof screen.orientation.angle === 'number'
+    ? screen.orientation.angle
+    : Number(window.orientation) || 0;
+  return ((angle % 360) + 360) % 360;
+}
+
+function normalizeGravityForScreen(x, y) {
+  const rad = (getScreenOrientationAngle() * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return {
+    x: x * cos - y * sin,
+    y: x * sin + y * cos,
+  };
+}
+
+function leanPolarToCartesian(r, angleDeg) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return {
+    x: LEAN_CENTER_X + r * Math.sin(rad),
+    y: LEAN_CENTER_Y - r * Math.cos(rad),
+  };
+}
+
+function describeLeanArc(r, startAngle, endAngle) {
+  if (endAngle <= startAngle) return '';
+  const start = leanPolarToCartesian(r, startAngle);
+  const end = leanPolarToCartesian(r, endAngle);
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+  return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+}
+
+function buildLeanGauge() {
+  if (!leanTicksGroup) return;
+
+  leanArcRedL.setAttribute('d', describeLeanArc(72, -LEAN_RANGE, -LEAN_YELLOW));
+  leanArcYellowL.setAttribute('d', describeLeanArc(72, -LEAN_YELLOW, -LEAN_GREEN));
+  leanArcGreen.setAttribute('d', describeLeanArc(72, -LEAN_GREEN, LEAN_GREEN));
+  leanArcYellowR.setAttribute('d', describeLeanArc(72, LEAN_GREEN, LEAN_YELLOW));
+  leanArcRedR.setAttribute('d', describeLeanArc(72, LEAN_YELLOW, LEAN_RANGE));
+
+  leanTicksGroup.innerHTML = '';
+  for (let value = -LEAN_RANGE; value <= LEAN_RANGE; value += 10) {
+    const isMajor = value % 30 === 0;
+    const outer = leanPolarToCartesian(82, value);
+    const inner = leanPolarToCartesian(isMajor ? 66 : 74, value);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', outer.x);
+    line.setAttribute('y1', outer.y);
+    line.setAttribute('x2', inner.x);
+    line.setAttribute('y2', inner.y);
+    line.setAttribute('class', isMajor ? 'tick-major' : 'tick-minor');
+    leanTicksGroup.appendChild(line);
+
+    if (isMajor) {
+      const labelPos = leanPolarToCartesian(52, value);
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', labelPos.x);
+      text.setAttribute('y', labelPos.y);
+      text.textContent = String(value);
+      leanTicksGroup.appendChild(text);
+    }
+  }
+}
+
+function renderAccel(gForce) {
+  const absG = Math.abs(gForce);
+  const ratio = Math.max(0, Math.min(1, absG / ACCEL_MAX_G));
+  accelBarFill.style.height = `${ratio * 50}%`;
+  accelBarFill.style.top = gForce < 0 ? '50%' : 'auto';
+  accelBarFill.style.bottom = gForce >= 0 ? '50%' : 'auto';
+  accelBarFill.classList.remove('neutral', 'accelerating', 'braking', 'high', 'extreme');
+  if (absG === 0) accelBarFill.classList.add('neutral');
+  else accelBarFill.classList.add(gForce > 0 ? 'accelerating' : 'braking');
+  if (absG > 0.55) accelBarFill.classList.add('high');
+  if (absG > 0.9) accelBarFill.classList.add('extreme');
+  accelReadout.textContent = `${gForce > 0 ? '+' : ''}${gForce.toFixed(2)}g`;
+}
+
+function renderLean(deg) {
+  const absDeg = Math.abs(deg);
+  const roundedDeg = Math.round(absDeg);
+  const side = deg >= 0 ? 'R' : 'L';
+  const invalid = absDeg > LEAN_RANGE;
+  leanArrow.hidden = invalid;
+  leanArrow.style.display = invalid ? 'none' : '';
+  if (leanInvalid) leanInvalid.hidden = !invalid;
+  const clampedDeg = Math.max(-LEAN_RANGE, Math.min(LEAN_RANGE, deg));
+  leanArrow.setAttribute('transform', `rotate(${clampedDeg} ${LEAN_CENTER_X} ${LEAN_CENTER_Y})`);
+  leanArrow.classList.remove('zone-green', 'zone-yellow', 'zone-red');
+  if (invalid || absDeg >= LEAN_YELLOW) leanArrow.classList.add('zone-red');
+  else if (absDeg >= LEAN_GREEN) leanArrow.classList.add('zone-yellow');
+  else leanArrow.classList.add('zone-green');
+  leanReadout.textContent = invalid ? `! ${roundedDeg}°` : roundedDeg === 0 ? '-' : `${roundedDeg}°${side}`;
+}
+
+// Ángulo (en grados) que ha girado el vector (x,y) respecto al vector de
+// referencia (refX,refY), en el plano propio del teléfono. Al no depender de
+// beta/gamma ni de la orientación de pantalla, no sufre gimbal lock ni
+// necesita saber si el montaje es vertical u horizontal.
+function angleBetween(x, y, refX, refY) {
+  const cross = x * refY - y * refX;
+  const dot = x * refX + y * refY;
+  return (Math.atan2(cross, dot) * 180) / Math.PI;
+}
+
+function handleMotion(event) {
+  const now = performance.now();
+
+  const g = event.accelerationIncludingGravity;
+  if (g && g.x !== null && g.y !== null) {
+    const gravity = normalizeGravityForScreen(g.x, g.y);
+    lastGravityX = gravity.x;
+    lastGravityY = gravity.y;
+
+    if (leanRefX === null) {
+      leanRefX = gravity.x;
+      leanRefY = gravity.y;
+    }
+
+    const raw = LEAN_SIGN * angleBetween(gravity.x, gravity.y, leanRefX, leanRefY);
+
+    if (lastLeanTime === null) {
+      smoothedLean = raw;
+    } else {
+      const dt = Math.max(0.001, (now - lastLeanTime) / 1000);
+      const alpha = 1 - Math.exp(-dt / MOTION_TAU);
+      smoothedLean = alpha * raw + (1 - alpha) * smoothedLean;
+    }
+    lastLeanTime = now;
+  }
+
+  // event.acceleration ya viene sin gravedad (a diferencia de
+  // accelerationIncludingGravity), así que no hace falta restarla nosotros.
+  const a = event.acceleration;
+  if (a && a.x !== null && a.y !== null && a.z !== null) {
+    let longitudinalG = (ACCEL_SIGN * a.y) / G;
+    if (Math.abs(longitudinalG) < ACCEL_DEADZONE_G) longitudinalG = 0;
+
+    if (lastAccelTime === null) {
+      smoothedAccelG = longitudinalG;
+    } else {
+      const dt = Math.max(0.001, (now - lastAccelTime) / 1000);
+      const alpha = 1 - Math.exp(-dt / MOTION_TAU);
+      smoothedAccelG = alpha * longitudinalG + (1 - alpha) * smoothedAccelG;
+    }
+    lastAccelTime = now;
+  }
+
+  // Limitamos cuántas veces por segundo se toca el DOM/CSS, aunque el
+  // sensor dispare mucho más a menudo.
+  if (now - lastMotionRenderTime >= MOTION_RENDER_MS) {
+    lastMotionRenderTime = now;
+    renderLean(smoothedLean);
+    renderAccel(smoothedAccelG);
+  }
+}
+
+function calibrateLean() {
+  leanRefX = lastGravityX;
+  leanRefY = lastGravityY;
+  smoothedLean = 0;
+  renderLean(0);
+}
+
+calibrateBtn.addEventListener('click', calibrateLean);
+
+async function requestMotionPermission() {
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    try {
+      const result = await DeviceMotionEvent.requestPermission();
+      return result === 'granted';
+    } catch (err) {
+      console.warn('Permiso de sensores de movimiento denegado:', err);
+      return false;
+    }
+  }
+  return 'DeviceMotionEvent' in window;
+}
+
+// --- Arranque ---
+
+async function start() {
+  if (!window.isSecureContext) {
+    setStatus('Esta app necesita HTTPS para acceder al GPS.', 'error');
+    return;
+  }
+
+  if (!('geolocation' in navigator)) {
+    setStatus('Este navegador no soporta la API de geolocalización.', 'error');
+    return;
+  }
+
+  startBtn.hidden = true;
+  gaugeWrap.hidden = false;
+  cornerStats.hidden = false;
+  updateInfoPanel();
+  startInfoCycler();
+  setStatus('Buscando señal GPS…');
+
+  requestWakeLock();
+
+  watchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
+    enableHighAccuracy: true,
+    maximumAge: 0,
+    timeout: 15000,
+  });
+
+  const motionGranted = await requestMotionPermission();
+  if (motionGranted) {
+    window.addEventListener('devicemotion', handleMotion);
+    leanPlaceholder.hidden = true;
+    leanWrap.hidden = false;
+    calibrateBtn.hidden = false;
+  }
+}
+
+startBtn.addEventListener('click', start, { once: true });
+
+// --- Init ---
+
+setUnitButtonLabel();
+buildGauge(UNITS[unitIndex]);
+buildLeanGauge();
+renderSpeed(0);
+renderLean(0);
+renderAccel(0);
+
+// --- Offline support ---
+
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  window.addEventListener('load', () => {
+    // updateViaCache: 'none' obliga al navegador a comprobar siempre contra
+    // el servidor si sw.js ha cambiado, en vez de fiarse de la caché HTTP.
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch((err) => {
+      console.warn('No se pudo registrar el Service Worker:', err);
+    });
+  });
+
+  let hasReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hasReloaded) return;
+    hasReloaded = true;
+    window.location.reload();
+  });
+}
+
+
+
+

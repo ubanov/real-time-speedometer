@@ -1,77 +1,832 @@
-body {
-	margin: 0;
-	background: black;
-	color: #fff;
-	position: relative;
+html, body {
 	height: 100%;
 }
-nav{
-    width: 100%;
-    height: 10%;
-    padding-left: 7%;
-    background-color: black;
+body {
+	margin: 0;
+	min-height: 100dvh;
+	background: #000;
+	color: #fff;
+	display: flex;
+	flex-direction: column;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	padding-top: env(safe-area-inset-top);
+	padding-bottom: env(safe-area-inset-bottom);
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
 }
-.logo{
-    float: left;
-    line-height: 50px;
-    color: #fff;
+[hidden]{
+	display: none !important;
+}
+nav{
+	width: 100%;
+	padding: 1rem 0 1rem 7%;
+	background-color: black;
+	box-sizing: border-box;
+}
+.logo h2{
+	margin: 0;
+	color: #fff;
 }
 span{
 	color: #01d7a7;
 }
+#version{
+	color: #555;
+	font-size: 0.9rem;
+	font-weight: normal;
+}
 #landing{
-	height: 90%;
-    background-image: url("dashboard.jpg");
-    background-repeat: no-repeat;
-    background-size: 70% auto;
-    background-position: center;
-}
-#speed, #units {
-	font-family: 'sans';
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 1rem;
+	box-sizing: border-box;
 	text-align: center;
+	min-height: 0;
 }
-#units {
+#status{
+	margin: 0;
+	max-width: 90vw;
+	color: #ff4d4d;
+	font-size: clamp(1.05rem, 4.3vw, 1.5rem);
+	font-weight: 700;
+	transition: color 0.3s ease;
+	flex-shrink: 0;
+	letter-spacing: 0.01em;
+}
+#status.ok{
+	color: #01d7a7;
+}
+#status.error{
+	color: #ff4d4d;
+}
+
+/* --- Dashboard: rejilla de widgets --- */
+
+#dashboard{
+	flex: 1;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	display: grid;
+	gap: 0.8rem;
+	grid-template-columns: 60% 40%;
+	grid-template-rows: 40% 60%;
+	grid-template-areas:
+		"speed lean"
+		"speed spotify";
+}
+.widget{
+	background: #141414;
+	border-radius: 1rem;
+	box-sizing: border-box;
+	padding: 0.9rem;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	align-self: stretch;
+	justify-self: stretch;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+	min-height: 0;
+	overflow: hidden;
+}
+#speedWidget{ grid-area: speed; position: relative; height: 100%; }
+#leanWidget{ grid-area: lean; height: 100%; }
+#spotifyWidget{ grid-area: spotify; height: 100%; }
+
+.widget-placeholder{
+	color: #666;
+	font-size: 0.9rem;
+	max-width: 80%;
+}
+
+#startBtn{
+	padding: 1.2rem 2.4rem;
+	font-size: 1.5rem;
+	background: #01d7a7;
+	color: #000;
+	border: none;
+	border-radius: 0.6rem;
+	cursor: pointer;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	line-height: 1;
+	min-height: 4rem;
+}
+#startBtn:active{
+	background: #01b98d;
+}
+
+#gaugeWrap{
+	position: relative;
+	width: min(94%, 78dvh);
+	max-width: 620px;
+	max-height: 94%;
+	aspect-ratio: 1;
+	display: grid;
+	place-items: center;
+	isolation: isolate;
+}
+#gauge{
+	width: 100%;
+	height: 100%;
+	display: block;
+	overflow: visible;
+	filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.58));
+}
+#dialFace{
+	fill: url(#dialGlow);
+	stroke: rgba(199, 246, 249, 0.36);
+	stroke-width: 1;
+}
+#dialInnerShadow,
+#needleCover{
+	fill: #020405;
+	stroke: rgba(144, 201, 205, 0.15);
+	stroke-width: 1.6;
+}
+#dialRim{
+	fill: none;
+	stroke: url(#rimShine);
+	stroke-width: 3.4;
+}
+#dialRimInner{
+	fill: none;
+	stroke: rgba(222, 253, 255, 0.26);
+	stroke-width: 1.2;
+}
+.arc-zone{
+	fill: none;
+	stroke-width: 14;
+	stroke-linecap: butt;
+	opacity: 0.42;
+}
+#arcGreen{ stroke: #42d7ce; }
+#arcYellow{ stroke: #f3ce55; }
+#arcRed{ stroke: #ff493f; opacity: 0.78; filter: url(#softGlow); }
+#needleGlow{
+	stroke: rgba(255, 83, 63, 0.38);
+	stroke-width: 12;
+	stroke-linecap: round;
+	vector-effect: non-scaling-stroke;
+}
+#needle{
+	stroke: #ff533f;
+	stroke-width: 7;
+	stroke-linecap: round;
+	vector-effect: non-scaling-stroke;
+}
+#ticks line.tick-major, #leanTicks line.tick-major{
+	stroke: rgba(245, 252, 250, 0.92);
+	stroke-width: 2;
+	stroke-linecap: round;
+}
+#ticks line.tick-minor, #leanTicks line.tick-minor{
+	stroke: rgba(215, 239, 239, 0.46);
+	stroke-width: 1;
+	stroke-linecap: round;
+}
+#ticks text, #leanTicks text{
+	fill: #f5f8cf;
+	font-size: 12px;
+	font-weight: 800;
+	text-anchor: middle;
+	dominant-baseline: middle;
+	paint-order: stroke;
+	stroke: rgba(0, 0, 0, 0.48);
+	stroke-width: 0.75px;
+}
+#speedReadout{
 	position: absolute;
-	top: 58%;
-	left: 37%;
-	font-size: 2.7rem;
+	left: 50%;
+	top: 50%;
+	z-index: 2;
+	width: min(48%, 260px);
+	aspect-ratio: 1;
+	transform: translate(-50%, -48%);
+	border-radius: 50%;
+	background: radial-gradient(circle at 50% 42%, #050708 0%, #020202 68%, #000 100%);
+	box-shadow:
+		inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+		inset 0 18px 32px rgba(255, 255, 255, 0.03),
+		0 0 28px rgba(0, 0, 0, 0.72);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.2rem;
+	pointer-events: none;
 }
-#speed {
+#speed{
+	font-variant-numeric: tabular-nums;
+	font-weight: 300;
+	line-height: 0.9;
+	letter-spacing: 0;
+	font-size: clamp(3rem, 8.6vw, 6.7rem);
+	color: #fff;
+	text-shadow: 0 0 14px rgba(255, 255, 255, 0.2);
+}
+.speedDecimal{
+	font-size: 0.42em;
+	vertical-align: baseline;
+	margin-left: 0.03em;
+}
+#unitBtn{
+	pointer-events: auto;
+	background: transparent;
+	color: #f4fbfb;
+	border: none;
+	border-radius: 0.4rem;
+	padding: 0.12rem 0.45rem;
+	font-size: clamp(0.75rem, 1.8vw, 1.05rem);
+	font-weight: 700;
+	letter-spacing: 0;
+	cursor: pointer;
+}
+#unitBtn:active{
+	background: rgba(255, 255, 255, 0.1);
+}
+#distanceBox{
 	position: absolute;
-	top: 35%;
-	left: 34%;
-	font-size: 9rem;
+	left: 50%;
+	bottom: 7.5%;
+	z-index: 3;
+	transform: translateX(-50%);
+	width: min(42%, 220px);
+	min-height: clamp(2rem, 5.2vw, 3rem);
+	padding: 0.24rem 0.55rem;
+	box-sizing: border-box;
+	border-radius: 0.35rem;
+	border: 1px solid rgba(180, 244, 245, 0.34);
+	background: linear-gradient(180deg, rgba(7, 23, 28, 0.98), rgba(17, 42, 48, 0.94));
+	box-shadow: inset 0 0 18px rgba(175, 249, 249, 0.08), 0 8px 18px rgba(0, 0, 0, 0.52);
+	display: flex;
+	align-items: baseline;
+	justify-content: center;
+	gap: 0.28rem;
+	font-variant-numeric: tabular-nums;
+	color: #e8fbf8;
 }
-p{
+#distanceValue{
+	font-size: clamp(1.05rem, 3.4vw, 1.65rem);
+	font-weight: 850;
+	line-height: 1;
+}
+.distanceDecimal{
+	font-size: 0.58em;
+	margin-left: 0.02em;
+}
+#distanceBox span:last-child{
+	font-size: clamp(0.68rem, 1.7vw, 0.86rem);
+	font-weight: 800;
+	color: #9be6df;
+	letter-spacing: 0;
+	text-transform: uppercase;
+}
+@media (max-width: 700px) and (orientation: portrait) {
+	#cornerStats {
+		inset: 0.15rem 0.3rem 0.25rem;
+		grid-template-rows: auto minmax(0, 1fr);
+		gap: 0.3rem;
+	}
+	#speedWidget {
+		justify-content: center;
+		padding: 0.6rem;
+	}
+	#gaugeWrap{
+		width: min(96%, 78dvh);
+		max-height: 92%;
+	}
+	#spotifyAlbum {
+		width: 58px;
+		height: 58px;
+	}
+	#spotifyButtons {
+		gap: 1rem;
+	}
+	#spotifyPrevBtn, #spotifyPlayBtn, #spotifyNextBtn {
+		font-size: 2.2rem;
+		padding: 0.9rem 1rem;
+		min-width: 4.2rem;
+		min-height: 4.2rem;
+	}
+	#spotifyPlayBtn {
+		font-size: 2.6rem;
+		min-width: 4.6rem;
+		min-height: 4.6rem;
+	}
+}#infoPanel{
+	width: min(74vw, 34dvh, 300px);
+	margin-top: 0.2rem;
+	padding: 0.5rem 0.8rem;
+	border: 1px solid rgba(255, 255, 255, 0.16);
+	border-radius: 0.85rem;
+	background: rgba(255, 255, 255, 0.06);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.2rem;
+	min-height: 3.2rem;
+}
+#infoValue{
+	font-size: clamp(1.35rem, 4.8vw, 2.2rem);
+	font-weight: 800;
+	color: #fff;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+}
+#infoLabel{
+	font-size: 0.72rem;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: #c8c8c8;
+	font-weight: 700;
+}
+#cornerStats{
 	position: absolute;
-	top: 15%;
-	left: 35%;
-	color: red;
+	inset: 0.3rem;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	grid-template-rows: auto minmax(0, 1fr);
+	gap: 0.35rem;
+	pointer-events: none;
+	z-index: 2;
 }
-@media screen and (max-width: 1050px){
+.cornerTile{
+	max-width: 110px;
+	padding: 0.45rem 0.6rem;
+	border: 1px solid rgba(255,255,255,0.16);
+	border-radius: 0.8rem;
+	background: rgba(0, 0, 0, 0.55);
+	backdrop-filter: blur(10px);
+	text-align: center;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+}
+.cornerTopLeft{ justify-self: start; align-self: start; }
+.cornerTopRight{ justify-self: end; align-self: start; }
+.cornerBottomLeft{ justify-self: start; align-self: end; }
+.cornerBottomRight{ display: none; }
+.cornerTile div:first-child{
+	font-size: clamp(1.5rem, 3.7vw, 2rem);
+	font-weight: 900;
+	color: #fff;
+	line-height: 1.05;
+}
+.cornerStatus{
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35rem;
+	font-weight: 800;
+}
+.cornerIcon svg{
+	display: block;
+	width: 1.25rem;
+	height: 1.25rem;
+	fill: #01d7a7;
+}
+.cornerLabel{
+	display: block;
+	font-size: 0.8rem;
+	color: #ccc;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+#gaugeStatus{
+	display: none;
+}
+#accuracy{
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+	font-size: 0.75rem;
+	color: #888;
+}
+#accuracyIcon rect{
+	fill: #555;
+}
+#accuracyIcon .bar1{
+	fill: #999;
+}
+#accuracyIcon.quality-2 .bar1, #accuracyIcon.quality-2 .bar2{
+	fill: #ccc;
+}
+#accuracyIcon.quality-3 .bar1, #accuracyIcon.quality-3 .bar2, #accuracyIcon.quality-3 .bar3{
+	fill: #01d7a7;
+}
+
+#gpsIcon{
+	color: #01d7a7;
+	line-height: 0;
+}
+#gpsIcon svg{
+	fill: currentColor;
+}
+
+#leanWrap{
+	position: relative;
+	width: 100%;
+	height: 100%;
+	display: grid;
+	grid-template-columns: minmax(4.5rem, 0.8fr) minmax(0, 1.6fr);
+	grid-template-rows: minmax(0, 1fr) auto;
+	align-items: center;
+	justify-items: center;
+	gap: 0.25rem 0.7rem;
+	padding-top: 0;
+	padding-bottom: 0.25rem;
+	box-sizing: border-box;
+}
+#leanWrap #accelBarWrap{
+	grid-column: 1;
+	grid-row: 1;
+	align-self: end;
+}
+#accelBarWrap{
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0;
+	flex-shrink: 0;
+	width: 100%;
+}
+#accelBarTrack{
+	width: 12px;
+	height: min(15dvh, 120px);
+	background: #222;
+	border-radius: 6px;
+	position: relative;
+	display: block;
+	overflow: hidden;
+}
+#accelBarTrack::before{
+	content: "";
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 50%;
+	height: 1px;
+	background: rgba(255,255,255,0.36);
+	z-index: 1;
+}
+#accelBarFill{
+	position: absolute;
+	left: 0;
+	bottom: 50%;
+	width: 100%;
+	height: 0%;
+	background: #01d7a7;
+	transition: height 0.1s ease-out;
+}
+#accelBarFill.neutral{ background: #777; }
+#accelBarFill.accelerating{ background: #01d7a7; }
+#accelBarFill.braking{ background: #ff5d4d; }
+#accelBarFill.high{ background: #f5c518; }
+#accelBarFill.extreme{ background: #ff4d4d; }
+#accelReadout{
+	grid-column: 1;
+	grid-row: 2;
+	align-self: center;
+	font-family: inherit;
+	font-size: clamp(1.05rem, 2.25vw, 1.45rem);
+	color: #ccc;
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+	line-height: 1;
+	min-height: 1.45rem;
+	text-align: center;
+	width: 100%;
+}
+#leanGauge{
+	grid-column: 2;
+	grid-row: 1;
+	height: min(100%, 222px);
+	max-height: 222px;
+	width: min(100%, 31vw);
+	max-width: 222px;
+	display: block;
+	overflow: visible;
+	align-self: end;
+	transform: translateY(0.15rem);
+}
+#leanInfo{
+	grid-column: 2;
+	grid-row: 2;
+	position: relative;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0.8rem;
+	width: 100%;
+	min-height: 1.45rem;
+	align-self: center;
+	margin-bottom: 0;
+}
+#leanArcGreen{ stroke: #01d7a7; }
+#leanArcYellowL, #leanArcYellowR{ stroke: #f5c518; }
+#leanArcRedL, #leanArcRedR{ stroke: #ff4d4d; }
+#leanArrow{
+	color: #01d7a7;
+}
+#leanArrow line{
+	stroke: currentColor;
+	stroke-width: 4;
+	stroke-linecap: round;
+}
+#leanArrow.zone-green{ color: #01d7a7; }
+#leanArrow.zone-yellow{ color: #f5c518; }
+#leanArrow.zone-red{ color: #ff4d4d; }
+#leanHub{ fill: #01d7a7; }
+#leanInvalid{
+	fill: #ff3b30;
+	filter: url(#softGlow);
+}
+#leanReadout{
+	font-family: inherit;
+	font-size: clamp(1.05rem, 2.25vw, 1.45rem);
+	color: #ccc;
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+	line-height: 1;
+	min-width: 0;
+	text-align: right;
+	white-space: nowrap;
+}
+#calibrateBtn{
+	background: transparent;
+	color: #999;
+	border: 1px solid #555;
+	border-radius: 1rem;
+	padding: 0.18rem 0.9rem;
+	font-size: clamp(0.82rem, 1.7vw, 1.02rem);
+	cursor: pointer;
+}
+#calibrateBtn:active{ background: rgba(255,255,255,0.1); }
+
+/* --- Widget de Spotify: iconos grandes para tocar con guantes --- */
+
+#spotifyWidget{
+	gap: 0.6rem;
+	justify-content: center;
+	padding: 0.9rem;
+}
+#spotifyConnectBtn{
+	background: #1DB954;
+	color: #000;
+	border: 1px solid transparent;
+	border-radius: 1rem;
+	padding: 0.9rem 1.4rem;
+	font-size: 1.05rem;
+	font-weight: 800;
+	cursor: pointer;
+	letter-spacing: 0.02em;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	line-height: 1;
+	min-height: 3.6rem;
+	max-width: 90%;
+	align-self: center;
+}
+#spotifyConnectBtn:active{
+	background: #17a74a;
+}
+#spotifyConnectBtn:disabled{
+	background: #262626;
+	color: #666;
+	border-color: #444;
+	cursor: default;
+}
+#spotifyControls{
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: center;
+	gap: 0.7rem;
+	width: 100%;
+	flex: 1;
+	padding: 0.8rem;
+	border: 1px solid rgba(255,255,255,0.08);
+	border-radius: 1rem;
+	background: rgba(255,255,255,0.03);
+}
+#spotifyMeta{
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	padding: 0.4rem 0.6rem;
+}
+#spotifyAlbum{
+	width: 70px;
+	height: 70px;
+	object-fit: cover;
+	border-radius: 14px;
+	box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+}
+#spotifyText{
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	overflow: hidden;
+	min-width: 0;
+	flex: 1;
+}
+#spotifyTitle{
+	font-size: 1.25rem;
+	font-weight: 800;
+	color: #fff;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+#spotifyArtist{
+	font-size: 1rem;
+	color: #cbd4d9;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+#spotifyOpenLink{
+	flex-shrink: 0;
+	color: #03100d;
+	background: #01d7a7;
+	border: 1px solid rgba(255,255,255,0.18);
+	border-radius: 999px;
+	padding: 0.45rem 0.75rem;
+	font-size: 0.78rem;
+	font-weight: 800;
+	text-decoration: none;
+	white-space: nowrap;
+	box-shadow: 0 8px 18px rgba(1,215,167,0.16);
+}
+#spotifyOpenLink.is-hidden{
+	display: none;
+}
+#spotifyOpenLink:active{
+	transform: translateY(1px);
+}
+#spotifyProgressWrap{
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0 0.4rem;
+}
+#spotifyProgressBar{
+	flex: 1;
+	height: 8px;
+	background: rgba(255,255,255,0.08);
+	border-radius: 6px;
+	overflow: hidden;
+}
+#spotifyProgressFill{
+	height: 100%;
+	width: 0%;
+	background: linear-gradient(90deg,#01d7a7,#00c3b0);
+	transition: width 0.6s linear;
+}
+#spotifyTimeElapsed, #spotifyTimeRemaining{
+	font-size: 0.9rem;
+	color: #ddd;
+}
+#spotifyTrack{
+	width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 0.95rem;
+	color: #eee;
+	text-align: center;
+	font-weight: 600;
+	min-height: 1.2rem;
+}
+#spotifyButtons{
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: clamp(1.8rem, 5vw, 4rem);
+	width: 100%;
+	min-height: 5.2rem;
+	margin-top: 0.15rem;
+}
+#spotifyPrevBtn, #spotifyPlayBtn, #spotifyNextBtn{
+	background: transparent;
+	border: none;
+	color: #fff;
+	font-size: 0;
+	cursor: pointer;
+	padding: 0.45rem;
+	flex-shrink: 0;
+	border-radius: 0.6rem;
+	min-width: 4.2rem;
+	min-height: 4.2rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	overflow: hidden;
+	transition: transform 0.2s ease, opacity 0.2s ease;
+}
+#spotifyPrevBtn:hover, #spotifyNextBtn:hover, #spotifyPlayBtn:hover{
+	transform: translateY(-1px);
+	opacity: 0.82;
+}
+#spotifyPlayBtn{
+	color: #fff;
+	min-width: 5.8rem;
+	min-height: 5.8rem;
+}
+#spotifyPrevBtn::before,
+#spotifyPrevBtn::after,
+#spotifyNextBtn::before,
+#spotifyNextBtn::after{
+	content: "";
+	display: block;
+	width: 0;
+	height: 0;
+	border-top: clamp(1.05rem, 2vw, 1.6rem) solid transparent;
+	border-bottom: clamp(1.05rem, 2vw, 1.6rem) solid transparent;
+}
+#spotifyPrevBtn::before,
+#spotifyPrevBtn::after{
+	border-right: clamp(1.45rem, 2.8vw, 2.15rem) solid currentColor;
+}
+#spotifyNextBtn::before,
+#spotifyNextBtn::after{
+	border-left: clamp(1.45rem, 2.8vw, 2.15rem) solid currentColor;
+}
+#spotifyPlayBtn::before{
+	content: "";
+	display: block;
+	width: 0;
+	height: 0;
+	border-top: clamp(1.35rem, 2.8vw, 2rem) solid transparent;
+	border-bottom: clamp(1.35rem, 2.8vw, 2rem) solid transparent;
+	border-left: clamp(2rem, 4vw, 3rem) solid currentColor;
+	margin-left: 0.4rem;
+}
+#spotifyPlayBtn.is-playing::before,
+#spotifyPlayBtn.is-playing::after{
+	content: "";
+	display: block;
+	width: clamp(0.75rem, 1.5vw, 1.05rem);
+	height: clamp(3rem, 5.6vw, 4.2rem);
+	border: 0;
+	border-radius: 0.28rem;
+	background: currentColor;
+	margin: 0 0.28rem;
+}
+
+@media (orientation: landscape){
 	nav{
-		height: 550px;
-	}
-	h2{
-		font-size: 5rem;
-	}
-	p{
-		font-size: 2.5rem;
-		top: 22%;
-		left: 15%;
+		display: none;
 	}
 	#landing{
-		margin-left: 5%;
-		background-position: top;
-		background-size: 100% 35%;
+		padding: 0.5rem;
+		gap: 0.4rem;
 	}
-	#speed{
-		top: 41%;
-		left: 32%;
-		font-size: 11rem;
+	#status{
+		font-size: 0.85rem;
 	}
-	#units{
-		top: 52%;
-		font-size: 3rem;
+	#dashboard{
+		grid-template-columns: minmax(0, 6fr) minmax(0, 4fr);
+		grid-template-rows: minmax(0, 4fr) minmax(0, 6fr);
+	}
+	#leanGauge{
+		max-width: min(96%, 23vw);
+		max-height: 180px;
+	}
+	#accelBarTrack{
+		height: min(18dvh, 100px);
+	}
+	#spotifyWidget{
+		padding: 0.7rem;
+	}
+	#spotifyTrack{
+		font-size: 0.85rem;
+	}
+	#spotifyButtons{
+		gap: clamp(1.6rem, 4.2vw, 3.4rem);
+		min-height: 4.6rem;
+	}
+	#spotifyPrevBtn, #spotifyPlayBtn, #spotifyNextBtn{
+		padding: 0.3rem;
+		min-width: 3.8rem;
+		min-height: 3.8rem;
+	}
+	#spotifyPlayBtn{
+		min-width: 5rem;
+		min-height: 5rem;
 	}
 }
+
+
+
+
+
