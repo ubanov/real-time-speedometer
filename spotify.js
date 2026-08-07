@@ -7,6 +7,7 @@ let SPOTIFY_CLIENT_ID = '';
 const SPOTIFY_REDIRECT_URI = `${window.location.origin}${window.location.pathname.replace(/\/?$/, '/')}`;
 const SPOTIFY_SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing';
 const NOW_PLAYING_POLL_MS = 8000;
+const SPOTIFY_OPEN_URL = 'https://open.spotify.com/';
 
 const spotifyConnectBtn = document.getElementById('spotifyConnectBtn');
 const spotifyControls = document.getElementById('spotifyControls');
@@ -59,8 +60,8 @@ function renderNoActivePlayback() {
   if (spotifyTitle) spotifyTitle.textContent = 'Nada sonando';
   if (spotifyArtist) spotifyArtist.textContent = '';
   if (spotifyAlbum) spotifyAlbum.src = 'img/icon-192.png';
-  if (spotifyOpenLink) spotifyOpenLink.href = 'https://open.spotify.com/';
-  if (spotifyTrackLink) spotifyTrackLink.href = 'https://open.spotify.com/';
+  if (spotifyOpenLink) spotifyOpenLink.href = SPOTIFY_OPEN_URL;
+  if (spotifyTrackLink) spotifyTrackLink.href = SPOTIFY_OPEN_URL;
   setSpotifyOpenLinkVisible(true);
   renderProgress(0, 0);
 }
@@ -251,11 +252,8 @@ async function refreshNowPlaying() {
     if (spotifyAlbum && data.item.album && data.item.album.images && data.item.album.images[0]) {
       spotifyAlbum.src = data.item.album.images[0].url;
     }
-    const trackUrl = data.item.external_urls && data.item.external_urls.spotify
-      ? data.item.external_urls.spotify
-      : 'https://open.spotify.com/';
-    if (spotifyOpenLink) spotifyOpenLink.href = trackUrl;
-    if (spotifyTrackLink) spotifyTrackLink.href = trackUrl;
+    if (spotifyOpenLink) spotifyOpenLink.href = SPOTIFY_OPEN_URL;
+    if (spotifyTrackLink) spotifyTrackLink.href = SPOTIFY_OPEN_URL;
     setSpotifyOpenLinkVisible(false);
     if (data.device && data.device.id) {
       lastSpotifyDeviceId = data.device.id;

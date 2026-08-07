@@ -16,6 +16,7 @@ const arcRed = document.getElementById('arcRed');
 const needle = document.getElementById('needle');
 const needleGlow = document.getElementById('needleGlow');
 const leanWrap = document.getElementById('leanWrap');
+const leanGauge = document.getElementById('leanGauge');
 const leanPlaceholder = document.getElementById('leanPlaceholder');
 const accelBarFill = document.getElementById('accelBarFill');
 const accelReadout = document.getElementById('accelReadout');
@@ -28,7 +29,6 @@ const leanArcYellowL = document.getElementById('leanArcYellowL');
 const leanArcYellowR = document.getElementById('leanArcYellowR');
 const leanArcRedL = document.getElementById('leanArcRedL');
 const leanArcRedR = document.getElementById('leanArcRedR');
-const calibrateBtn = document.getElementById('calibrateBtn');
 const cornerStats = document.getElementById('cornerStats');
 const cornerClock = document.getElementById('cornerClock');
 const cornerTemp = document.getElementById('cornerTemp');
@@ -568,7 +568,7 @@ function calibrateLean() {
   renderLean(0);
 }
 
-calibrateBtn.addEventListener('click', calibrateLean);
+leanGauge.addEventListener('click', calibrateLean);
 
 async function requestMotionPermission() {
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
@@ -616,7 +616,6 @@ async function start() {
     window.addEventListener('devicemotion', handleMotion);
     leanPlaceholder.hidden = true;
     leanWrap.hidden = false;
-    calibrateBtn.hidden = false;
   }
 }
 
