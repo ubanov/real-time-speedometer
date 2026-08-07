@@ -451,9 +451,9 @@ span{
 	grid-template-rows: minmax(0, 1fr) auto;
 	align-items: center;
 	justify-items: center;
-	gap: 0.25rem 0.7rem;
+	gap: 0 0.7rem;
 	padding-top: 0;
-	padding-bottom: 0.25rem;
+	padding-bottom: 0.05rem;
 	box-sizing: border-box;
 }
 #leanWrap #accelBarWrap{
@@ -519,14 +519,14 @@ span{
 #leanGauge{
 	grid-column: 2;
 	grid-row: 1;
-	height: min(100%, 222px);
-	max-height: 222px;
-	width: min(100%, 31vw);
-	max-width: 222px;
+	height: min(122%, 333px);
+	max-height: 333px;
+	width: min(122%, 46vw);
+	max-width: 333px;
 	display: block;
 	overflow: visible;
 	align-self: end;
-	transform: translateY(0.15rem);
+	transform: translateY(0.55rem);
 }
 #leanInfo{
 	grid-column: 2;
@@ -539,6 +539,7 @@ span{
 	width: 100%;
 	min-height: 1.45rem;
 	align-self: center;
+	margin-top: -0.25rem;
 	margin-bottom: 0;
 }
 #leanArcGreen{ stroke: #01d7a7; }
@@ -812,8 +813,8 @@ span{
 		grid-template-rows: minmax(0, 4fr) minmax(0, 6fr);
 	}
 	#leanGauge{
-		max-width: min(96%, 23vw);
-		max-height: 180px;
+		max-width: min(112%, 34vw);
+		max-height: 270px;
 	}
 	#accelBarTrack{
 		height: min(18dvh, 100px);
