@@ -29,6 +29,7 @@ let currentDurationMs = 0;
 let lastProgressSyncTime = 0;
 let playbackOverrideUntil = 0;
 let hasPlaybackSnapshot = false;
+let lastSpotifyDeviceId = '';
 
 function renderPlaybackIcon() {
   if (!spotifyPlayBtn) return;
@@ -47,7 +48,7 @@ function renderNoActivePlayback() {
   renderPlaybackIcon();
 
   if (hasPlaybackSnapshot) {
-    setSpotifyOpenLinkVisible(false);
+    setSpotifyOpenLinkVisible(true);
     renderProgress(currentProgressMs, currentDurationMs);
     return;
   }
@@ -254,6 +255,9 @@ async function refreshNowPlaying() {
         : 'https://open.spotify.com/';
     }
     setSpotifyOpenLinkVisible(false);
+    if (data.device && data.device.id) {
+      lastSpotifyDeviceId = data.device.id;
+    }
     if (Date.now() >= playbackOverrideUntil) {
       isPlaying = Boolean(data.is_playing);
     }
@@ -304,11 +308,15 @@ async function togglePlayback() {
       currentProgressMs = Math.min(currentDurationMs, currentProgressMs + (Date.now() - lastProgressSyncTime));
       renderProgress(currentProgressMs, currentDurationMs);
     }
-    await spotifyApi(isPlaying ? '/me/player/pause' : '/me/player/play', { method: 'PUT' });
+    const playPath = lastSpotifyDeviceId
+      ? `/me/player/play?device_id=${encodeURIComponent(lastSpotifyDeviceId)}`
+      : '/me/player/play';
+    await spotifyApi(isPlaying ? '/me/player/pause' : playPath, { method: 'PUT' });
     isPlaying = nextIsPlaying;
     lastProgressSyncTime = Date.now();
     playbackOverrideUntil = Date.now() + 2500;
     renderPlaybackIcon();
+    if (nextIsPlaying) setSpotifyOpenLinkVisible(false);
     setTimeout(refreshNowPlaying, 800);
   } catch (err) {
     if (err.message === 'NO_ACTIVE_DEVICE') {
