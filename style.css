@@ -1,5 +1,6 @@
 html, body {
 	height: 100%;
+	touch-action: manipulation;
 }
 body {
 	margin: 0;
@@ -562,6 +563,7 @@ span{
 	min-height: 1.45rem;
 	text-align: center;
 	width: 100%;
+	transform: translateY(0.28rem);
 }
 #leanGauge{
 	grid-column: 2;
@@ -586,8 +588,9 @@ span{
 	width: 100%;
 	min-height: 1.45rem;
 	align-self: center;
-	margin-top: -0.25rem;
+	margin-top: 0;
 	margin-bottom: 0;
+	transform: translateY(0.28rem);
 }
 #leanArcGreen{ stroke: #01d7a7; }
 #leanArcYellowL, #leanArcYellowR{ stroke: #f5c518; }

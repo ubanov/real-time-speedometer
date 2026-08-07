@@ -70,6 +70,20 @@ let distanceKm = 0;
 let temperatureC = null;
 let tempUnit = localStorage.getItem('tempUnit') === 'F' ? 'F' : 'C';
 let lastWeatherFetchTime = 0;
+let lastTouchEndTime = 0;
+
+function lockPageZoom() {
+  document.addEventListener('gesturestart', (event) => event.preventDefault());
+  document.addEventListener('gesturechange', (event) => event.preventDefault());
+  document.addEventListener('touchmove', (event) => {
+    if (event.touches.length > 1) event.preventDefault();
+  }, { passive: false });
+  document.addEventListener('touchend', (event) => {
+    const now = Date.now();
+    if (now - lastTouchEndTime <= 320) event.preventDefault();
+    lastTouchEndTime = now;
+  }, { passive: false });
+}
 
 // --- Gauge geometry helpers ---
 
@@ -623,6 +637,7 @@ startBtn.addEventListener('click', start, { once: true });
 
 // --- Init ---
 
+lockPageZoom();
 setUnitButtonLabel();
 buildGauge(UNITS[unitIndex]);
 buildLeanGauge();
