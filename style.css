@@ -369,15 +369,62 @@ span{
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
 }
 .cornerTopLeft{ justify-self: start; align-self: start; }
-.cornerTopRight{ justify-self: end; align-self: start; }
+.cornerTopRight{
+	justify-self: end;
+	align-self: start;
+	pointer-events: auto;
+}
 .cornerBottomLeft{ justify-self: start; align-self: end; }
 .cornerBottomRight{ display: none; }
-#cornerClock,
-#cornerTemp{
+#cornerClock{
 	font-size: clamp(1.8rem, 4.4vw, 2.45rem);
 	font-weight: 900;
 	color: #fff;
 	line-height: 1.05;
+}
+#cornerTemp{
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.12em;
+	padding: 0;
+	margin: 0;
+	border: 0;
+	background: transparent;
+	color: #fff;
+	font: inherit;
+	font-weight: 900;
+	line-height: 1;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+}
+#cornerTemp .tempWhole{
+	color: #fff;
+	font-size: clamp(1.8rem, 4.4vw, 2.45rem);
+	line-height: 0.95;
+	font-variant-numeric: tabular-nums;
+}
+#cornerTemp .tempMeta{
+	display: inline-grid;
+	grid-template-rows: 1fr 1fr;
+	align-items: center;
+	justify-items: start;
+	gap: 0.04rem;
+	color: #01d7a7;
+	line-height: 1;
+}
+#cornerTemp .tempUnit{
+	color: #01d7a7;
+	font-size: clamp(0.66rem, 1.5vw, 0.88rem);
+	line-height: 1;
+	align-self: end;
+}
+#cornerTemp .tempDecimal{
+	color: #01d7a7;
+	font-size: clamp(0.72rem, 1.7vw, 1rem);
+	line-height: 1;
+	align-self: start;
+	font-variant-numeric: tabular-nums;
 }
 .cornerLabel{
 	display: block;

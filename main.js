@@ -68,6 +68,7 @@ const WEATHER_FETCH_MS = 10 * 60 * 1000;
 let infoTimer = null;
 let distanceKm = 0;
 let temperatureC = null;
+let tempUnit = localStorage.getItem('tempUnit') === 'F' ? 'F' : 'C';
 let lastWeatherFetchTime = 0;
 
 // --- Gauge geometry helpers ---
@@ -132,6 +133,19 @@ function formatCompactDecimal(value, decimals, decimalClass) {
   return `${integer}<span class="${decimalClass}">.${decimal}</span>`;
 }
 
+function renderTemperature() {
+  if (!cornerTemp) return;
+
+  if (temperatureC === null) {
+    cornerTemp.innerHTML = `<span class="tempWhole">--</span><span class="tempMeta"><span class="tempUnit">°${tempUnit}</span><span class="tempDecimal">.</span></span>`;
+    return;
+  }
+
+  const displayValue = tempUnit === 'F' ? temperatureC * 9 / 5 + 32 : temperatureC;
+  const [integer, decimal] = displayValue.toFixed(1).split('.');
+  cornerTemp.innerHTML = `<span class="tempWhole">${integer}</span><span class="tempMeta"><span class="tempUnit">°${tempUnit}</span><span class="tempDecimal">.${decimal}</span></span>`;
+}
+
 function renderNeedle(angle) {
   const inner = polarToCartesian(CENTER, CENTER, 64, angle);
   const outer = polarToCartesian(CENTER, CENTER, 88, angle);
@@ -162,7 +176,7 @@ function updateInfoPanel() {
     minute: '2-digit',
     hour12: false,
   });
-  cornerTemp.textContent = temperatureC === null ? '--' : `${temperatureC.toFixed(0)}°`;
+  renderTemperature();
   cornerDistance.textContent = `${distanceKm.toFixed(1)}`;
   if (distanceValue) distanceValue.innerHTML = formatCompactDecimal(distanceKm, 1, 'distanceDecimal');
 
@@ -210,6 +224,12 @@ unitBtn.addEventListener('click', () => {
   setUnitButtonLabel();
   buildGauge(UNITS[unitIndex]);
   renderSpeed(smoothedSpeedMs || 0);
+});
+
+cornerTemp.addEventListener('click', () => {
+  tempUnit = tempUnit === 'C' ? 'F' : 'C';
+  localStorage.setItem('tempUnit', tempUnit);
+  renderTemperature();
 });
 
 
