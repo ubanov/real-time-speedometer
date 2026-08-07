@@ -166,16 +166,16 @@ function updateInfoPanel() {
   cornerDistance.textContent = `${distanceKm.toFixed(1)}`;
   if (distanceValue) distanceValue.innerHTML = formatCompactDecimal(distanceKm, 1, 'distanceDecimal');
 
+  let gpsQuality = 0;
   if (accuracyText.textContent) {
     const accuracyNumber = Number.parseFloat(accuracyText.textContent.replace(/±| m/g, ''));
     if (Number.isFinite(accuracyNumber)) {
-      const quality = accuracyNumber <= 6 ? 'Alta' : accuracyNumber <= 12 ? 'Media' : 'Baja';
-      cornerGps.textContent = quality;
-    } else {
-      cornerGps.textContent = '--';
+      gpsQuality = accuracyNumber <= 6 ? 3 : accuracyNumber <= 12 ? 2 : 1;
     }
-  } else {
-    cornerGps.textContent = '--';
+  }
+  if (cornerGps) {
+    cornerGps.classList.remove('quality-0', 'quality-1', 'quality-2', 'quality-3');
+    cornerGps.classList.add(`quality-${gpsQuality}`);
   }
 }
 
