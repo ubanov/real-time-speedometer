@@ -31,6 +31,7 @@ const leanArcRedL = document.getElementById('leanArcRedL');
 const leanArcRedR = document.getElementById('leanArcRedR');
 const cornerStats = document.getElementById('cornerStats');
 const cornerClock = document.getElementById('cornerClock');
+const cornerClockLabel = document.getElementById('cornerClockLabel');
 const cornerTemp = document.getElementById('cornerTemp');
 const cornerGps = document.getElementById('cornerGps');
 const cornerDistance = document.getElementById('cornerDistance');
@@ -71,6 +72,8 @@ let temperatureC = null;
 let tempUnit = localStorage.getItem('tempUnit') === 'F' ? 'F' : 'C';
 let lastWeatherFetchTime = 0;
 let lastTouchEndTime = 0;
+let clockMode = localStorage.getItem('clockMode') === 'elapsed' ? 'elapsed' : 'time';
+let sessionStartTime = null;
 
 function lockPageZoom() {
   document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -160,6 +163,31 @@ function renderTemperature() {
   cornerTemp.innerHTML = `<span class="tempWhole">${integer}</span><span class="tempMeta"><span class="tempUnit">°${tempUnit}</span><span class="tempDecimal">.${decimal}</span></span>`;
 }
 
+function formatElapsed(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}`;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function renderClock(now) {
+  if (clockMode === 'elapsed') {
+    const startedAt = sessionStartTime || Date.now();
+    cornerClock.textContent = formatElapsed(Date.now() - startedAt);
+    cornerClockLabel.textContent = 'Tiempo';
+    return;
+  }
+
+  cornerClock.textContent = now.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  cornerClockLabel.textContent = 'Reloj';
+}
+
 function renderNeedle(angle) {
   const inner = polarToCartesian(CENTER, CENTER, 64, angle);
   const outer = polarToCartesian(CENTER, CENTER, 88, angle);
@@ -185,11 +213,7 @@ function updateInfoPanel() {
   if (!cornerStats) return;
 
   const now = new Date();
-  cornerClock.textContent = now.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+  renderClock(now);
   renderTemperature();
   cornerDistance.textContent = `${distanceKm.toFixed(1)}`;
   if (distanceValue) distanceValue.innerHTML = formatCompactDecimal(distanceKm, 1, 'distanceDecimal');
@@ -244,6 +268,12 @@ cornerTemp.addEventListener('click', () => {
   tempUnit = tempUnit === 'C' ? 'F' : 'C';
   localStorage.setItem('tempUnit', tempUnit);
   renderTemperature();
+});
+
+cornerClock.addEventListener('click', () => {
+  clockMode = clockMode === 'time' ? 'elapsed' : 'time';
+  localStorage.setItem('clockMode', clockMode);
+  updateInfoPanel();
 });
 
 
@@ -610,6 +640,7 @@ async function start() {
     return;
   }
 
+  sessionStartTime = Date.now();
   startBtn.hidden = true;
   gaugeWrap.hidden = false;
   cornerStats.hidden = false;

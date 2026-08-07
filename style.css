@@ -369,7 +369,11 @@ span{
 	text-align: center;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
 }
-.cornerTopLeft{ justify-self: start; align-self: start; }
+.cornerTopLeft{
+	justify-self: start;
+	align-self: start;
+	pointer-events: auto;
+}
 .cornerTopRight{
 	justify-self: end;
 	align-self: start;
@@ -378,10 +382,21 @@ span{
 .cornerBottomLeft{ justify-self: start; align-self: end; }
 .cornerBottomRight{ display: none; }
 #cornerClock{
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	margin: 0;
+	border: 0;
+	background: transparent;
 	font-size: clamp(1.8rem, 4.4vw, 2.45rem);
 	font-weight: 900;
 	color: #fff;
 	line-height: 1.05;
+	font-family: inherit;
+	font-variant-numeric: tabular-nums;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
 }
 #cornerTemp{
 	display: inline-flex;
