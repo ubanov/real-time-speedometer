@@ -62,6 +62,8 @@ let wakeLock = null;
 let lastFix = null; // { lat, lon, time }
 let smoothedSpeedMs = null;
 let lastSmoothTime = null;
+let lastAccelSpeedMs = null;
+let lastAccelSpeedTime = null;
 let unitIndex = Number(localStorage.getItem('speedUnitIndex')) || 0;
 if (unitIndex < 0 || unitIndex >= UNITS.length) unitIndex = 0;
 
@@ -164,12 +166,10 @@ function renderTemperature() {
 }
 
 function formatElapsed(ms) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}`;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  const totalMinutes = Math.max(0, Math.floor(ms / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}:${minutes.toString().padStart(2, '0')}`;
 }
 
 function renderClock(now) {
@@ -319,6 +319,35 @@ function handleDistance(lat, lon, timestamp) {
   updateInfoPanel();
 }
 
+function smoothAccelToward(targetG, now, tau) {
+  const target = Math.max(-ACCEL_MAX_G, Math.min(ACCEL_MAX_G, targetG));
+  if (lastAccelTime === null) {
+    smoothedAccelG = target;
+  } else {
+    const dt = Math.max(0.001, (now - lastAccelTime) / 1000);
+    const alpha = 1 - Math.exp(-dt / tau);
+    smoothedAccelG = alpha * target + (1 - alpha) * smoothedAccelG;
+  }
+  lastAccelTime = now;
+}
+
+function updateGpsAcceleration(speedMs, timestamp) {
+  if (lastAccelSpeedMs !== null && lastAccelSpeedTime !== null) {
+    const dt = Math.max(0.2, (timestamp - lastAccelSpeedTime) / 1000);
+    let gpsAccelG = (speedMs - lastAccelSpeedMs) / dt / G;
+    if (Math.abs(gpsAccelG) < ACCEL_DEADZONE_G) gpsAccelG = 0;
+
+    const sensorIsStale = performance.now() - lastUsefulSensorAccelTime > 1200;
+    if (sensorIsStale) {
+      smoothAccelToward(gpsAccelG, performance.now(), ACCEL_GPS_TAU);
+      renderAccel(smoothedAccelG);
+    }
+  }
+
+  lastAccelSpeedMs = speedMs;
+  lastAccelSpeedTime = timestamp;
+}
+
 async function requestWakeLock() {
   if (!('wakeLock' in navigator)) return;
   try {
@@ -370,6 +399,7 @@ function handlePosition(loc) {
     smoothedSpeedMs = 0;
   }
 
+  updateGpsAcceleration(smoothedSpeedMs, timestamp);
   renderSpeed(smoothedSpeedMs);
 
   if (typeof coords.accuracy === 'number') {
@@ -389,6 +419,8 @@ function handleError(err) {
   lastFix = null;
   smoothedSpeedMs = null;
   lastSmoothTime = null;
+  lastAccelSpeedMs = null;
+  lastAccelSpeedTime = null;
   switch (err.code) {
     case err.PERMISSION_DENIED:
       setStatus('Permiso de ubicación denegado. Actívalo en Ajustes > Safari > Ubicación y vuelve a tocar Iniciar.', 'error');
@@ -429,21 +461,25 @@ let lastLeanTime = null;
 
 // --- Aceleración (medidor "gracioso" de G's, sin uso de mount específico) ---
 const G = 9.80665;
-const ACCEL_MAX_G = 1.2; // escala de la barra: llena al 100% a partir de esta g
-const ACCEL_DEADZONE_G = 0.03; // por debajo de esto, se muestra 0.00 (ruido del sensor en reposo)
+const ACCEL_MAX_G = 0.5; // escala visual: 0.2g ya debe verse claramente
+const ACCEL_DEADZONE_G = 0.015; // por debajo de esto, se muestra 0.00 (ruido del sensor en reposo)
 const ACCEL_SIGN = -1; // cambia a 1 si acelerar/frenar salen invertidos en tu montaje
 let smoothedAccelG = 0;
 let lastAccelTime = null;
+let filteredGravityX = null;
+let filteredGravityY = null;
+let lastUsefulSensorAccelTime = 0;
 
 // El sensor dispara decenas de veces por segundo; ni conviene pintar tan
 // a menudo (parpadeo/mareo visual) ni la CSS transition aguanta bien que
 // se reinicie constantemente (eso es lo que hacía que "se viera lento":
 // cada evento reiniciaba la animación antes de que acabara la anterior).
-// MOTION_TAU controla cuánto tarda en converger el valor suavizado
-// (independiente de la frecuencia real del sensor); MOTION_RENDER_MS
-// limita cuántas veces por segundo tocamos el DOM/CSS.
-const MOTION_TAU = 0.12;
-const MOTION_RENDER_MS = 150;
+// En moto hay mucha vibración: el inclinómetro necesita una gravedad muy
+// filtrada, y el acelerómetro se apoya en GPS cuando el sensor no da señal útil.
+const LEAN_TAU = 1.1;
+const ACCEL_SENSOR_TAU = 0.45;
+const ACCEL_GPS_TAU = 0.9;
+const MOTION_RENDER_MS = 250;
 let lastMotionRenderTime = 0;
 
 function getScreenOrientationAngle() {
@@ -559,21 +595,35 @@ function handleMotion(event) {
   const g = event.accelerationIncludingGravity;
   if (g && g.x !== null && g.y !== null) {
     const gravity = normalizeGravityForScreen(g.x, g.y);
-    lastGravityX = gravity.x;
-    lastGravityY = gravity.y;
+    const gravityMagnitude = Math.hypot(g.x || 0, g.y || 0, g.z || 0);
+    const stableGravity = Math.abs(gravityMagnitude - G) < 2.2;
 
-    if (leanRefX === null) {
-      leanRefX = gravity.x;
-      leanRefY = gravity.y;
+    if (filteredGravityX === null || filteredGravityY === null || lastLeanTime === null) {
+      filteredGravityX = gravity.x;
+      filteredGravityY = gravity.y;
+    } else {
+      const dt = Math.max(0.001, (now - lastLeanTime) / 1000);
+      const baseAlpha = 1 - Math.exp(-dt / LEAN_TAU);
+      const alpha = stableGravity ? baseAlpha : baseAlpha * 0.18;
+      filteredGravityX = alpha * gravity.x + (1 - alpha) * filteredGravityX;
+      filteredGravityY = alpha * gravity.y + (1 - alpha) * filteredGravityY;
     }
 
-    const raw = LEAN_SIGN * angleBetween(gravity.x, gravity.y, leanRefX, leanRefY);
+    lastGravityX = filteredGravityX;
+    lastGravityY = filteredGravityY;
+
+    if (leanRefX === null) {
+      leanRefX = filteredGravityX;
+      leanRefY = filteredGravityY;
+    }
+
+    const raw = LEAN_SIGN * angleBetween(filteredGravityX, filteredGravityY, leanRefX, leanRefY);
 
     if (lastLeanTime === null) {
       smoothedLean = raw;
     } else {
       const dt = Math.max(0.001, (now - lastLeanTime) / 1000);
-      const alpha = 1 - Math.exp(-dt / MOTION_TAU);
+      const alpha = 1 - Math.exp(-dt / LEAN_TAU);
       smoothedLean = alpha * raw + (1 - alpha) * smoothedLean;
     }
     lastLeanTime = now;
@@ -583,17 +633,16 @@ function handleMotion(event) {
   // accelerationIncludingGravity), así que no hace falta restarla nosotros.
   const a = event.acceleration;
   if (a && a.x !== null && a.y !== null && a.z !== null) {
-    let longitudinalG = (ACCEL_SIGN * a.y) / G;
+    const screenAccel = normalizeGravityForScreen(a.x || 0, a.y || 0);
+    let longitudinalG = (ACCEL_SIGN * screenAccel.y) / G;
     if (Math.abs(longitudinalG) < ACCEL_DEADZONE_G) longitudinalG = 0;
 
-    if (lastAccelTime === null) {
-      smoothedAccelG = longitudinalG;
-    } else {
-      const dt = Math.max(0.001, (now - lastAccelTime) / 1000);
-      const alpha = 1 - Math.exp(-dt / MOTION_TAU);
-      smoothedAccelG = alpha * longitudinalG + (1 - alpha) * smoothedAccelG;
+    if (longitudinalG !== 0) {
+      lastUsefulSensorAccelTime = now;
+      smoothAccelToward(longitudinalG, now, ACCEL_SENSOR_TAU);
+    } else if (now - lastUsefulSensorAccelTime < 1200) {
+      smoothAccelToward(0, now, ACCEL_SENSOR_TAU);
     }
-    lastAccelTime = now;
   }
 
   // Limitamos cuántas veces por segundo se toca el DOM/CSS, aunque el

@@ -192,7 +192,17 @@ span{
 	stroke-width: 1;
 	stroke-linecap: round;
 }
-#ticks text, #leanTicks text{
+#ticks text{
+	fill: #fff;
+	font-size: 12px;
+	font-weight: 800;
+	text-anchor: middle;
+	dominant-baseline: middle;
+	paint-order: stroke;
+	stroke: rgba(0, 0, 0, 0.48);
+	stroke-width: 0.75px;
+}
+#leanTicks text{
 	fill: #f5f8cf;
 	font-size: 12px;
 	font-weight: 800;
@@ -236,11 +246,12 @@ span{
 	font-size: 0.42em;
 	vertical-align: baseline;
 	margin-left: 0.03em;
+	color: #fff;
 }
 #unitBtn{
 	pointer-events: auto;
 	background: transparent;
-	color: #f4fbfb;
+	color: #fff;
 	border: none;
 	border-radius: 0.4rem;
 	padding: 0.12rem 0.45rem;
@@ -271,21 +282,23 @@ span{
 	justify-content: center;
 	gap: 0.28rem;
 	font-variant-numeric: tabular-nums;
-	color: #e8fbf8;
+	color: #fff;
 }
 #distanceValue{
 	font-size: clamp(1.05rem, 3.4vw, 1.65rem);
 	font-weight: 850;
 	line-height: 1;
+	color: #fff;
 }
 .distanceDecimal{
 	font-size: 0.58em;
 	margin-left: 0.02em;
+	color: #fff;
 }
 #distanceBox span:last-child{
 	font-size: clamp(0.68rem, 1.7vw, 0.86rem);
 	font-weight: 800;
-	color: #9be6df;
+	color: #fff;
 	letter-spacing: 0;
 	text-transform: uppercase;
 }
@@ -533,10 +546,10 @@ span{
 	width: 100%;
 }
 #accelBarTrack{
-	width: 12px;
-	height: min(15dvh, 120px);
+	width: 24px;
+	height: min(28dvh, 220px);
 	background: #222;
-	border-radius: 6px;
+	border-radius: 12px;
 	position: relative;
 	display: block;
 	overflow: hidden;
@@ -570,7 +583,7 @@ span{
 	grid-row: 2;
 	align-self: center;
 	font-family: inherit;
-	font-size: clamp(1.05rem, 2.25vw, 1.45rem);
+	font-size: clamp(1.2rem, 2.7vw, 1.75rem);
 	color: #ccc;
 	font-variant-numeric: tabular-nums;
 	font-weight: 700;
@@ -628,7 +641,7 @@ span{
 }
 #leanReadout{
 	font-family: inherit;
-	font-size: clamp(1.05rem, 2.25vw, 1.45rem);
+	font-size: clamp(1.2rem, 2.7vw, 1.75rem);
 	color: #ccc;
 	font-variant-numeric: tabular-nums;
 	font-weight: 700;
@@ -888,7 +901,7 @@ span{
 		max-height: 270px;
 	}
 	#accelBarTrack{
-		height: min(18dvh, 100px);
+		height: min(31dvh, 210px);
 	}
 	#spotifyWidget{
 		padding: 0.7rem;
