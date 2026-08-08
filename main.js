@@ -2,6 +2,7 @@
 
 const speedDiv = document.getElementById('speed');
 const distanceValue = document.getElementById('distanceValue');
+const distanceUnit = document.getElementById('distanceUnit');
 const unitBtn = document.getElementById('unitBtn');
 const accuracyText = document.getElementById('accuracyText');
 const accuracyIcon = document.getElementById('accuracyIcon');
@@ -34,7 +35,6 @@ const cornerClock = document.getElementById('cornerClock');
 const cornerClockLabel = document.getElementById('cornerClockLabel');
 const cornerTemp = document.getElementById('cornerTemp');
 const cornerGps = document.getElementById('cornerGps');
-const cornerDistance = document.getElementById('cornerDistance');
 // Suavizado exponencial basado en tiempo real transcurrido (no en número de
 // lecturas): así la respuesta no depende de la cadencia con la que el GPS
 // entregue posiciones. SPEED_TAU es la "constante de tiempo": con ~1s entre
@@ -46,10 +46,10 @@ const SPEED_STOP_THRESHOLD = 0.3; // m/s por debajo de esto se considera "parado
 // de km/h son los de referencia (0-120-160-200) y el resto de unidades
 // son la misma frontera física convertida.
 const UNITS = [
-  { key: 'kmh', label: 'km/h', factor: 3.6, max: 200, majorStep: 20, greenEnd: 120, yellowEnd: 160 },
-  { key: 'mph', label: 'mph', factor: 2.23693629205, max: 125, majorStep: 25, greenEnd: 75, yellowEnd: 100 },
-  { key: 'kn', label: 'nudos', factor: 1.94384449244, max: 110, majorStep: 10, greenEnd: 65, yellowEnd: 85 },
-  { key: 'ms', label: 'm/s', factor: 1, max: 60, majorStep: 10, greenEnd: 33, yellowEnd: 44 },
+  { key: 'kmh', label: 'km/h', distanceLabel: 'km', distanceFactor: 1, max: 200, majorStep: 20, greenEnd: 120, yellowEnd: 160, factor: 3.6 },
+  { key: 'mph', label: 'mph', distanceLabel: 'mi', distanceFactor: 0.621371192, max: 125, majorStep: 25, greenEnd: 75, yellowEnd: 100, factor: 2.23693629205 },
+  { key: 'kn', label: 'nudos', distanceLabel: 'nm', distanceFactor: 0.539956803, max: 110, majorStep: 10, greenEnd: 65, yellowEnd: 85, factor: 1.94384449244 },
+  { key: 'ms', label: 'm/s', distanceLabel: 'm', distanceFactor: 1000, max: 60, majorStep: 10, greenEnd: 33, yellowEnd: 44, factor: 1 },
 ];
 
 const CENTER = 100;
@@ -209,14 +209,20 @@ function renderSpeed(speedMs) {
   renderNeedle(angleForValue(displayValue, unit.max));
 }
 
+function renderDistance() {
+  const unit = UNITS[unitIndex];
+  const displayDistance = distanceKm * unit.distanceFactor;
+  if (distanceValue) distanceValue.innerHTML = formatCompactDecimal(displayDistance, 1, 'distanceDecimal');
+  if (distanceUnit) distanceUnit.textContent = unit.distanceLabel;
+}
+
 function updateInfoPanel() {
   if (!cornerStats) return;
 
   const now = new Date();
   renderClock(now);
   renderTemperature();
-  cornerDistance.textContent = `${distanceKm.toFixed(1)}`;
-  if (distanceValue) distanceValue.innerHTML = formatCompactDecimal(distanceKm, 1, 'distanceDecimal');
+  renderDistance();
 
   let gpsQuality = 0;
   if (accuracyText.textContent) {
@@ -262,6 +268,7 @@ unitBtn.addEventListener('click', () => {
   setUnitButtonLabel();
   buildGauge(UNITS[unitIndex]);
   renderSpeed(smoothedSpeedMs || 0);
+  renderDistance();
 });
 
 cornerTemp.addEventListener('click', () => {

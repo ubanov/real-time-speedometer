@@ -393,7 +393,11 @@ span{
 	pointer-events: auto;
 }
 .cornerBottomLeft{ justify-self: start; align-self: end; }
-.cornerBottomRight{ display: none; }
+.cornerBottomRight{
+	justify-self: end;
+	align-self: end;
+	pointer-events: auto;
+}
 #cornerClock{
 	display: inline-flex;
 	align-items: center;
