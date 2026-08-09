@@ -74,7 +74,7 @@ Si la publicas en internet para que la use mas gente, revisa antes:
 El repositorio incluye un subproyecto de firmware en:
 
 ```text
-firmware/esp32blinky/esp32blinky.ino
+firmware/moto_gateway/moto_gateway.ino
 ```
 
 El ESP32 crea un punto de acceso WiFi `MotoGateway` y expone una API HTTP:

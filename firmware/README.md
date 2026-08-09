@@ -240,7 +240,7 @@ Reglas de seguridad:
 Actualmente el firmware base ya se ha convertido a WiFi:
 
 ```text
-firmware/esp32blinky/esp32blinky.ino
+firmware/moto_gateway/moto_gateway.ino
 ```
 
 Incluye:
