@@ -6,7 +6,7 @@ Objetivo del prototipo:
 
 - Leer testigos de la moto por optoacopladores.
 - Leer velocidad y RPM por optoacopladores con salida Schmitt.
-- Alimentar el ESP32 con bateria independiente.
+- Alimentar el ESP32 desde +12 V despues de contacto con convertidor 12 V a 5 V.
 - Controlar dos reles automocion mediante salidas optoaisladas.
 - Exponer datos por WiFi a la web.
 
@@ -21,16 +21,18 @@ Solo lectura + botones propios del ESP32.
 Sin rele de luz conectado.
 Sin rele de arranque conectado.
 Sin medir voltaje de bateria de moto al principio.
-ESP32 alimentado por bateria/powerbank independiente.
+ESP32 alimentado desde contacto de moto con convertidor 12 V a 5 V.
 ```
 
-Asi el ESP32 no comparte alimentacion ni masa con la moto salvo que una senal concreta lo requiera. Las senales de testigos y pulsos entran por optoacopladores.
+Asi se evita bateria propia y cargador en la primera version. El ESP32 comparte masa con la moto a traves del convertidor DC/DC, pero las senales de testigos y pulsos siguen entrando por optoacopladores para no meter 12 V ni ruido directamente a los GPIO.
 
 Compra minima para esta v1:
 
 ```text
 1x ESP32-S3-DevKitC-1-N8
-1x Power bank USB pequeno o bateria LiPo + PowerBoost 1000C
+1x convertidor 12 V a 5 V tipo Pololu D36V28F5 o equivalente 5 V / >=2 A
+1x portafusible + fusible 0.5 A o 1 A para alimentar el convertidor
+1x TVS SMBJ24CA/SMBJ24A en la entrada de 12 V del convertidor
 6x PC817C/LTV-817C para testigos
 2x H11L1M para velocidad/RPM
 2x pulsadores impermeables de manillar
@@ -42,7 +44,6 @@ caja plastica
 cable fino de senal
 conectores impermeables
 termorretractil
-fusible pequeno para tomar +12 V de contacto si alguna entrada lo necesita
 ```
 
 Compra aplazable:
@@ -58,12 +59,13 @@ arranque sin llave
 
 El montaje en la moto para esta v1 seria:
 
-1. ESP32 alimentado con power bank USB o LiPo propia.
-2. Testigos conectados por PC817C.
-3. Velocidad conectada por H11L1M si se identifica un pulso razonable.
-4. RPM solo si se encuentra una salida de tacometro/ECU acondicionada; no bobina directa.
-5. Botones conectados solo al ESP32.
-6. Relays sin montar o con contactos desconectados.
+1. Tomar +12 V despues de contacto con fusible pequeno.
+2. Convertir +12 V a 5 V con un buck y alimentar el ESP32 por USB/5V.
+3. Testigos conectados por PC817C.
+4. Velocidad conectada por H11L1M si se identifica un pulso razonable.
+5. RPM solo si se encuentra una salida de tacometro/ECU acondicionada; no bobina directa.
+6. Botones conectados solo al ESP32.
+7. Relays sin montar o con contactos desconectados.
 
 ## Compra recomendada
 
@@ -87,9 +89,36 @@ Para una placa final:
 Espressif ESP32-S3-WROOM-1-N8
 ```
 
-### Bateria y alimentacion del prototipo
+### Alimentacion del prototipo desde la moto
 
-Opcion recomendada para empezar:
+Opcion recomendada para esta v1:
+
+```text
+Pololu D36V28F5, 5 V / 3.2 A, entrada hasta 50 V
+```
+
+Conexion:
+
+```text
++12 V despues de contacto -> fusible 0.5 A o 1 A -> VIN+ convertidor
+Masa moto -> VIN- convertidor
+VOUT+ 5 V convertidor -> pin 5V/VIN del ESP32-S3-DevKitC-1-N8
+VOUT- convertidor -> GND del ESP32
+```
+
+Proteccion recomendada en entrada:
+
+```text
+TVS SMBJ24CA/SMBJ24A entre VIN+ y VIN- del convertidor
+condensador 100 nF cerca de VIN
+condensador electrolitico 47 uF a 220 uF cerca de VIN
+```
+
+No alimentar a la vez por USB del ordenador y por el buck sin comprobar antes el esquema de la placa. Para programar, desconectar el buck o alimentar todo desde USB.
+
+### Bateria y alimentacion futura
+
+Si mas adelante vuelve a tener sentido bateria propia:
 
 ```text
 Adafruit PowerBoost 1000C - Product ID 2465
@@ -104,7 +133,7 @@ PowerBoost 5V -> pin 5V/VIN del ESP32-S3-DevKitC-1-N8
 PowerBoost GND -> GND del ESP32
 ```
 
-Esta opcion es comoda para prototipo porque carga la bateria y entrega 5 V. Para una version final de bajo consumo conviene una placa propia con cargador y regulador de muy baja corriente en reposo.
+Esta opcion es comoda cuando haya arranque sin llave o funciones con la moto apagada. Para la primera v1 de solo lectura no hace falta.
 
 ### Optoacopladores de testigos
 
@@ -436,7 +465,7 @@ Pero esta opcion rompe aislamiento porque exige masa comun. Mejor dejarlo descon
 
 ## ADC bateria ESP
 
-Si se quiere medir la bateria LiPo antes del PowerBoost:
+Si en una fase futura se usa LiPo, se puede medir la bateria antes del PowerBoost:
 
 ```text
 BAT+ LiPo -> 100k -> GPIO2 -> 100k -> GND ESP32
@@ -447,7 +476,7 @@ Con divisor 100k/100k, el ADC ve la mitad de la tension de bateria.
 
 ## Orden de montaje
 
-1. Montar solo ESP32 + PowerBoost + bateria.
+1. Montar solo ESP32 + buck 12 V a 5 V.
 2. Flashear firmware y comprobar `http://192.168.4.1/api/v1/health`.
 3. Montar un PC817C de testigo en banco con fuente de 12 V limitada.
 4. Repetir los 6 testigos.

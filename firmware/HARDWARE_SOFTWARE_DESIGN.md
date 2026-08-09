@@ -60,18 +60,18 @@ Para bateria, lo importante no es solo el chip:
 
 ### Alimentacion principal del ESP32
 
-La idea original es que el ESP32 tenga bateria independiente para no depender de la bateria principal de la moto.
+Para la v1 de solo lectura no hace falta bateria independiente. Se alimenta el ESP32 desde +12 V despues de contacto con un convertidor DC/DC 12 V a 5 V.
 
-Bloques recomendados:
+Bloques recomendados para v1:
 
 ```text
-Bateria ESP32 -> BMS/cargador -> regulador 3.3 V estable -> ESP32
++12 V despues de contacto -> fusible -> TVS/proteccion -> buck 12 V a 5 V -> ESP32
 ```
 
-Si en algun momento se carga desde la moto:
+Si mas adelante se quiere que el ESP32 funcione con la moto apagada para arranque sin llave o wake remoto, entonces si tendria sentido bateria independiente:
 
 ```text
-+12 V moto -> fusible -> proteccion polaridad -> TVS automocion -> buck 12 V a 5 V/3.3 V -> cargador/BMS
+Bateria ESP32 -> BMS/cargador -> regulador 3.3 V/5 V estable -> ESP32
 ```
 
 Pendiente definir:
