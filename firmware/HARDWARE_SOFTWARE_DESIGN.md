@@ -91,11 +91,10 @@ Si algun sensor obliga a compartir masa, debe hacerse en un unico punto controla
 
 Entradas previstas:
 
-- Intermitente izquierdo.
-- Intermitente derecho.
+- Intermitente unico del cuadro.
 - Punto muerto.
 - Luz larga.
-- Motor encendido.
+- Aviso motor/check engine.
 - Llave/contacto.
 
 ### Conexion recomendada para senal positiva de 12 V
@@ -285,12 +284,12 @@ El firmware actual usa:
 | Funcion | GPIO |
 | --- | ---: |
 | Velocidad | 4 |
-| RPM | 5 |
-| Intermitente izquierdo | 6 |
-| Intermitente derecho | 7 |
+| RPM futura / reserva | 5 |
+| Intermitente unico | 6 |
+| Aviso motor / check engine | 7 |
 | Punto muerto | 8 |
 | Luz larga | 9 |
-| Motor encendido | 10 |
+| Reserva testigo | 10 |
 | Llave/contacto | 11 |
 | Boton wake | 12 |
 | Boton accion | 13 |

@@ -47,10 +47,10 @@ Estas entradas deberian ir protegidas y acondicionadas antes de llegar al ESP32.
 
 ### Testigos / leds
 
-- `turnLeft` / `turnRight` o una entrada combinada de intermitentes.
+- `turn`: entrada combinada de intermitentes.
 - `neutral`: punto muerto.
 - `highBeam`: luz larga.
-- `engineOn`: motor encendido o testigo equivalente.
+- `engineWarning`: aviso motor/check.
 - `keyOn`: llave/contacto encendido.
 
 Pendiente decidir si algunos testigos llegan como 12 V, masa conmutada, señal ya filtrada o si conviene usar optoacopladores.

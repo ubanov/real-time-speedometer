@@ -33,8 +33,9 @@ Compra minima para esta v1:
 1x convertidor 12 V a 5 V tipo Pololu D36V28F5 o equivalente 5 V / >=2 A
 1x portafusible + fusible 0.5 A o 1 A para alimentar el convertidor
 1x TVS SMBJ24CA/SMBJ24A en la entrada de 12 V del convertidor
-6x PC817C/LTV-817C para testigos
-2x H11L1M para velocidad/RPM
+5x PC817C/LTV-817C para testigos/contacto
+1x H11L1M para velocidad
+1x H11L1M extra si mas adelante se conecta RPM
 2x pulsadores impermeables de manillar
 resistencias 4.7k, 2.2k, 10k, 330 ohm
 diodos 1N4148
@@ -63,9 +64,8 @@ El montaje en la moto para esta v1 seria:
 2. Convertir +12 V a 5 V con un buck y alimentar el ESP32 por USB/5V.
 3. Testigos conectados por PC817C.
 4. Velocidad conectada por H11L1M si se identifica un pulso razonable.
-5. RPM solo si se encuentra una salida de tacometro/ECU acondicionada; no bobina directa.
-6. Botones conectados solo al ESP32.
-7. Relays sin montar o con contactos desconectados.
+5. Botones conectados solo al ESP32.
+6. Relays sin montar o con contactos desconectados.
 
 ## Compra recomendada
 
@@ -137,35 +137,35 @@ Esta opcion es comoda cuando haya arranque sin llave o funciones con la moto apa
 
 ### Optoacopladores de testigos
 
-Comprar:
+Comprar para la v1:
 
 ```text
-PC817C o LTV-817C x 8
+PC817C o LTV-817C x 5
 ```
 
 Usos:
 
-- Intermitente izquierdo.
-- Intermitente derecho.
+- Intermitente unico.
+- Aviso motor/check.
 - Punto muerto.
 - Luz larga.
-- Motor encendido.
 - Llave/contacto.
-- Reserva 1.
-- Reserva 2.
+
+Comprar alguno extra es barato y recomendable, pero el circuito real de la v1 usa 5.
 
 ### Optoacopladores de velocidad/RPM
 
 Comprar:
 
 ```text
-H11L1M x 2
+H11L1M x 1
 ```
 
 Uso:
 
 - Velocidad.
-- RPM.
+
+Comprar un segundo H11L1M solo si mas adelante aparece una senal de RPM limpia.
 
 El H11L1M tiene salida con disparador Schmitt, mejor para pulsos que un PC817 normal.
 
@@ -227,18 +227,18 @@ Placa perforada o protoboard soldable
 Separadores y fijacion antivibracion
 ```
 
-## Pinout definitivo del prototipo
+## Pinout definitivo del prototipo Honda Shadow v1
 
 | Funcion | GPIO ESP32-S3 |
 | --- | ---: |
 | Velocidad | 4 |
-| RPM | 5 |
-| Intermitente izquierdo | 6 |
-| Intermitente derecho | 7 |
+| RPM futura / reserva | 5 |
+| Intermitente unico | 6 |
+| Aviso motor / check engine | 7 |
 | Punto muerto | 8 |
 | Luz larga | 9 |
-| Motor encendido | 10 |
-| Llave/contacto | 11 |
+| Reserva testigo | 10 |
+| Llave/contacto +12 V | 11 |
 | Boton wake | 12 |
 | Boton accion | 13 |
 | Rele luz | 16 |
@@ -293,6 +293,62 @@ Resultado:
 Usar para senales donde la moto activa el testigo poniendo el cable a masa.
 
 Ejemplo frecuente: punto muerto.
+
+## Entradas previstas en Honda Shadow v1
+
+| Senal del cuadro | Circuito | GPIO |
+| --- | --- | ---: |
+| Intermitente unico | PC817C segun polaridad encontrada | 6 |
+| Aviso motor/check | PC817C segun polaridad encontrada | 7 |
+| Punto muerto/neutro | PC817C, probablemente conmutado a masa | 8 |
+| Luz larga | PC817C, probablemente +12 V activo | 9 |
+| Llave/contacto | PC817C desde +12 V despues de contacto | 11 |
+| Velocidad | H11L1M desde pulso de velocimetro | 4 |
+
+Notas:
+
+- Si el aviso motor se enciende cuando el motor esta apagado, en la API aparece como `engineWarning`.
+- `engineOn` se calcula provisionalmente como `keyOn && !engineWarning`.
+- Si una senal comparte LED con ambos intermitentes, se usa un unico campo `turn`.
+- GPIO10 queda de reserva por si aparece otro testigo util.
+
+## Que buscar en el velocimetro de la moto
+
+Al abrir el cuadro/velocimetro, intentar identificar:
+
+```text
+Masa del cuadro
++12 V despues de contacto
+senal LED intermitente unico
+senal LED aviso motor/check
+senal LED luz larga
+senal LED neutro
+senal de velocidad/tacometro del cuadro
+```
+
+Para cada LED puede haber dos posibilidades:
+
+```text
+Caso A: el LED recibe +12 V cuando se enciende.
+Caso B: el LED tiene +12 V fijo y la moto lo enciende conectando el otro lado a masa.
+```
+
+Con multimetro:
+
+1. Punta negra a masa del cuadro.
+2. Punta roja al cable/pista del LED.
+3. Ver tension con testigo apagado y encendido.
+
+Si pasa de 0 V a 12 V al encender, usar el cableado de "testigo 12 V positivo".
+
+Si esta a 12 V y al encender baja a 0 V, usar el cableado de "testigo conmutado a masa".
+
+Para la senal de velocidad:
+
+- No conectar a ESP32 al principio.
+- Medir primero con multimetro y, si se puede, osciloscopio/logica.
+- Si parece pulso de 5 V o 12 V razonable, llevarla al H11L1M.
+- Si parece senal rara, inductiva o de alta energia, parar y redisenar esa entrada.
 
 Lado moto:
 

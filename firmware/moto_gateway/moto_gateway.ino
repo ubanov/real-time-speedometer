@@ -43,11 +43,10 @@ const char *MDNS_NAME = "moto";
 const uint8_t PIN_SPEED = 4;
 const uint8_t PIN_RPM = 5;
 
-const uint8_t PIN_TURN_LEFT = 6;
-const uint8_t PIN_TURN_RIGHT = 7;
+const uint8_t PIN_TURN = 6;
+const uint8_t PIN_ENGINE_WARNING = 7;
 const uint8_t PIN_NEUTRAL = 8;
 const uint8_t PIN_HIGH_BEAM = 9;
-const uint8_t PIN_ENGINE_ON = 10;
 const uint8_t PIN_KEY_ON = 11;
 
 const uint8_t PIN_BUTTON_WAKE = 12;
@@ -94,11 +93,10 @@ float speedKmh = 0;
 uint16_t rpm = 0;
 uint32_t totalSpeedPulses = 0;
 
-bool turnLeft = false;
-bool turnRight = false;
+bool turn = false;
+bool engineWarning = false;
 bool neutral = false;
 bool highBeam = false;
-bool engineOn = false;
 bool keyOn = false;
 bool buttonWake = false;
 bool buttonAction = false;
@@ -151,7 +149,6 @@ String boolJson(bool value) {
 }
 
 String powerMode() {
-  if (engineOn) return "running";
   if (keyOn) return "standby";
   if (millis() < wakeWindowUntil) return "wakeWindow";
   return "sleep";
@@ -193,11 +190,10 @@ void handleOptions() {
 // --- Lectura de estado ---
 
 void sampleInputs() {
-  turnLeft = activeRead(PIN_TURN_LEFT);
-  turnRight = activeRead(PIN_TURN_RIGHT);
+  turn = activeRead(PIN_TURN);
+  engineWarning = activeRead(PIN_ENGINE_WARNING);
   neutral = activeRead(PIN_NEUTRAL);
   highBeam = activeRead(PIN_HIGH_BEAM);
-  engineOn = activeRead(PIN_ENGINE_ON);
   keyOn = activeRead(PIN_KEY_ON);
   buttonWake = activeRead(PIN_BUTTON_WAKE);
   buttonAction = activeRead(PIN_BUTTON_ACTION);
@@ -247,7 +243,7 @@ void updatePulseDerivedValues() {
 void updateRelays() {
   const uint32_t now = millis();
 
-  if (engineOn) {
+  if (keyOn) {
     engineOffSince = 0;
     if (engineOnSince == 0) engineOnSince = now;
   } else {
@@ -256,10 +252,10 @@ void updateRelays() {
   }
 
   if (lightAuto) {
-    if (engineOn && engineOnSince > 0 && now - engineOnSince >= LIGHT_ON_DELAY_MS) {
+    if (keyOn && engineOnSince > 0 && now - engineOnSince >= LIGHT_ON_DELAY_MS) {
       setRelayLight(true);
     }
-    if (!engineOn && engineOffSince > 0 && now - engineOffSince >= LIGHT_OFF_DELAY_MS) {
+    if (!keyOn && engineOffSince > 0 && now - engineOffSince >= LIGHT_OFF_DELAY_MS) {
       setRelayLight(false);
     }
   }
@@ -334,11 +330,14 @@ String statusJson() {
   json += String(totalSpeedPulses);
   json += ",";
   json += "\"leds\":{";
+  json += "\"turn\":";
+  json += boolJson(turn);
+  json += ",";
   json += "\"turnLeft\":";
-  json += boolJson(turnLeft);
+  json += boolJson(turn);
   json += ",";
   json += "\"turnRight\":";
-  json += boolJson(turnRight);
+  json += boolJson(turn);
   json += ",";
   json += "\"neutral\":";
   json += boolJson(neutral);
@@ -346,8 +345,11 @@ String statusJson() {
   json += "\"highBeam\":";
   json += boolJson(highBeam);
   json += ",";
+  json += "\"engineWarning\":";
+  json += boolJson(engineWarning);
+  json += ",";
   json += "\"engineOn\":";
-  json += boolJson(engineOn);
+  json += boolJson(keyOn && !engineWarning);
   json += ",";
   json += "\"keyOn\":";
   json += boolJson(keyOn);
@@ -465,7 +467,7 @@ void handleCommand() {
   if (bodyContains("starterEnableMs")) {
     const uint32_t requestedMs = readCommandMs("starterEnableMs", STARTER_DEFAULT_MS);
     const uint32_t durationMs = requestedMs > STARTER_MAX_MS ? STARTER_MAX_MS : requestedMs;
-    const bool wakeAllowed = millis() < wakeWindowUntil || keyOn || engineOn;
+    const bool wakeAllowed = millis() < wakeWindowUntil || keyOn;
 
     if (!wakeAllowed) {
       sendJson(409, "{\"ok\":false,\"error\":\"wake_window_required\"}");
@@ -511,11 +513,10 @@ void setupPins() {
   pinMode(PIN_SPEED, INPUT_PULLUP);
   pinMode(PIN_RPM, INPUT_PULLUP);
 
-  pinMode(PIN_TURN_LEFT, INPUT_PULLUP);
-  pinMode(PIN_TURN_RIGHT, INPUT_PULLUP);
+  pinMode(PIN_TURN, INPUT_PULLUP);
+  pinMode(PIN_ENGINE_WARNING, INPUT_PULLUP);
   pinMode(PIN_NEUTRAL, INPUT_PULLUP);
   pinMode(PIN_HIGH_BEAM, INPUT_PULLUP);
-  pinMode(PIN_ENGINE_ON, INPUT_PULLUP);
   pinMode(PIN_KEY_ON, INPUT_PULLUP);
   pinMode(PIN_BUTTON_WAKE, INPUT);
   pinMode(PIN_BUTTON_ACTION, INPUT);
