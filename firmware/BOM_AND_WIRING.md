@@ -12,6 +12,59 @@ Objetivo del prototipo:
 
 No es una instalacion final homologada. Antes de conectar a la moto hay que probar cada bloque en banco con fuente limitada.
 
+## Primera version directa en moto
+
+Para ir directo a la moto sin complicar demasiado, la primera version debe ser:
+
+```text
+Solo lectura + botones propios del ESP32.
+Sin rele de luz conectado.
+Sin rele de arranque conectado.
+Sin medir voltaje de bateria de moto al principio.
+ESP32 alimentado por bateria/powerbank independiente.
+```
+
+Asi el ESP32 no comparte alimentacion ni masa con la moto salvo que una senal concreta lo requiera. Las senales de testigos y pulsos entran por optoacopladores.
+
+Compra minima para esta v1:
+
+```text
+1x ESP32-S3-DevKitC-1-N8
+1x Power bank USB pequeno o bateria LiPo + PowerBoost 1000C
+6x PC817C/LTV-817C para testigos
+2x H11L1M para velocidad/RPM
+2x pulsadores impermeables de manillar
+resistencias 4.7k, 2.2k, 10k, 330 ohm
+diodos 1N4148
+condensadores 100 nF
+placa perforada/protoboard soldable
+caja plastica
+cable fino de senal
+conectores impermeables
+termorretractil
+fusible pequeno para tomar +12 V de contacto si alguna entrada lo necesita
+```
+
+Compra aplazable:
+
+```text
+Reles automocion
+MOSFETs de reles
+1N4007 flyback
+portareles
+medida ADC de bateria moto
+arranque sin llave
+```
+
+El montaje en la moto para esta v1 seria:
+
+1. ESP32 alimentado con power bank USB o LiPo propia.
+2. Testigos conectados por PC817C.
+3. Velocidad conectada por H11L1M si se identifica un pulso razonable.
+4. RPM solo si se encuentra una salida de tacometro/ECU acondicionada; no bobina directa.
+5. Botones conectados solo al ESP32.
+6. Relays sin montar o con contactos desconectados.
+
 ## Compra recomendada
 
 ### Controlador
@@ -404,4 +457,3 @@ Con divisor 100k/100k, el ADC ve la mitad de la tension de bateria.
 8. Conectar a la moto solo para leer.
 9. Activar rele de luz.
 10. Dejar arranque para la ultima fase.
-
