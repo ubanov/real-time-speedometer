@@ -4,6 +4,12 @@ Este subproyecto define el hardware y firmware de un modulo ESP32 para leer sena
 
 La idea principal es evitar una aplicacion nativa: el ESP32 publica una API sencilla y la web actual la consume si el dispositivo esta disponible. Si no esta disponible, la web puede seguir funcionando con GPS y sensores del telefono.
 
+El diseno hardware/software detallado esta en:
+
+```text
+firmware/HARDWARE_SOFTWARE_DESIGN.md
+```
+
 ## Objetivo
 
 Crear un modulo independiente conectado a la moto que proporcione:
