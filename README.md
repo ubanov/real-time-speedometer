@@ -7,6 +7,7 @@ Esta pensada para funcionar como una web estatica: no necesita instalacion de ap
 ## Funciones
 
 - Velocimetro digital y esfera visual inspirada en cuadros de coche.
+- Lectura opcional de velocidad desde un ESP32 por WiFi.
 - Distancia recorrida durante la sesion.
 - Indicador de calidad de GPS.
 - Inclinometro lateral con rango de `-60` a `60` grados.
@@ -67,6 +68,31 @@ Si la publicas en internet para que la use mas gente, revisa antes:
 - Que el `Redirect URI` de Spotify coincida con la URL publica.
 - Que la pagina se sirva por HTTPS.
 - Que entiendes que el `Client ID` sera visible para cualquiera que use la web.
+
+## ESP32 Moto Gateway
+
+El repositorio incluye un subproyecto de firmware en:
+
+```text
+firmware/esp32blinky/esp32blinky.ino
+```
+
+El ESP32 crea un punto de acceso WiFi `MotoGateway` y expone una API HTTP:
+
+- `GET /status`: velocidad, RPM, testigos, botones, reles y energia.
+- `GET /config`: configuracion activa de pulsos, rueda y timeouts.
+- `POST /command`: comandos controlados para luz y arranque.
+
+La web intenta detectar automaticamente:
+
+```text
+http://moto.local/status
+http://192.168.4.1/status
+```
+
+Si el ESP32 responde, la velocidad y la distancia pasan a salir del gateway. Si no responde, la aplicacion sigue usando GPS como antes.
+
+Nota: si sirves la web por HTTPS, algunos navegadores pueden bloquear peticiones HTTP al ESP32 por mixed content. Para uso privado puede tener sentido servir la web en HTTP dentro de Tailscale o hacer de puente desde tu servidor privado.
 
 Si `secret.env` ya se habia anadido alguna vez al repo, quitale el seguimiento antes de subir:
 

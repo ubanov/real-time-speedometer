@@ -94,9 +94,25 @@ Reglas iniciales:
 - Si se detecta `keyOn` o `engineOn`, mantener el modulo despierto.
 - Reducir WiFi o apagarlo en `sleep` si el consumo lo requiere.
 
-## API prevista
+## API implementada inicialmente
 
 La API debe ser facil de consumir desde la web.
+
+El firmware actual crea por defecto un punto de acceso WiFi:
+
+```text
+SSID: MotoGateway
+PASS: moto12345
+URL:  http://192.168.4.1/status
+```
+
+Tambien intenta publicar mDNS en:
+
+```text
+http://moto.local/status
+```
+
+Si se rellenan `WIFI_SSID` y `WIFI_PASS` en el `.ino`, el ESP32 mantiene el AP y ademas intenta conectarse a esa red como cliente.
 
 ### `GET /status`
 
@@ -120,6 +136,7 @@ Ejemplo:
   },
   "relays": {
     "light": true,
+    "lightAuto": true,
     "starter": false
   },
   "power": {
@@ -164,6 +181,8 @@ La web podria usar:
 
 - WebSocket si esta disponible.
 - Polling de `/status` como fallback.
+
+Este canal aun no esta implementado. La primera version usa polling HTTP contra `/status`.
 
 ## Integracion con la web actual
 
@@ -218,20 +237,40 @@ Reglas de seguridad:
 
 ## Estado actual
 
-Actualmente se ha copiado el firmware base:
+Actualmente el firmware base ya se ha convertido a WiFi:
 
 ```text
 firmware/esp32blinky/esp32blinky.ino
 ```
 
-Ese fichero viene del proyecto `BLEMoto` y todavia usa BLE. La siguiente fase sera convertirlo progresivamente en firmware WiFi con API HTTP/WebSocket.
+Incluye:
+
+- Punto de acceso `MotoGateway`.
+- Servidor HTTP en el puerto `80`.
+- CORS abierto para que la web pueda consultar la API desde otro origen.
+- `GET /status`.
+- `GET /config`.
+- `POST /command`.
+- Calculo provisional de velocidad y RPM por pulsos.
+- Estado de testigos, botones, reles y alimentacion.
+- Control automatico provisional del rele de luz.
+- Activacion temporizada del rele de arranque.
+
+La web principal intenta consultar automaticamente:
+
+- `http://moto.local/status`
+- `http://192.168.4.1/status`
+
+Si responde, usa la velocidad del ESP32 como fuente principal. Si no responde, sigue usando GPS.
+
+Importante: los pines son provisionales. Las entradas de `GPIO34` y `GPIO35` no tienen pull-up interno en ESP32, asi que los botones necesitan pull-up/pull-down externo si se mantienen esos pines.
 
 ## Siguientes pasos
 
-1. Definir pines provisionales del ESP32.
-2. Definir formato definitivo de `/status`.
-3. Sustituir BLE por WiFi.
-4. Crear servidor HTTP basico en ESP32.
-5. Simular entradas con botones/pines antes de conectar a la moto.
-6. Integrar la web con deteccion automatica del ESP32.
+1. Validar que compila en el modelo exacto de ESP32.
+2. Probar `/status` desde el movil conectado al AP `MotoGateway`.
+3. Simular pulsos de velocidad/RPM en banco.
+4. Ajustar `SPEED_PULSES_PER_WHEEL_REV`, `WHEEL_CIRCUMFERENCE_M` y `RPM_PULSES_PER_REV`.
+5. Definir el acondicionamiento electrico real de entradas de 12 V.
+6. Implementar bajo consumo real/deep sleep.
 7. Anadir visualizacion de leds en el dashboard.

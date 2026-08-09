@@ -68,6 +68,8 @@ let unitIndex = Number(localStorage.getItem('speedUnitIndex')) || 0;
 if (unitIndex < 0 || unitIndex >= UNITS.length) unitIndex = 0;
 
 const WEATHER_FETCH_MS = 10 * 60 * 1000;
+const MOTO_GATEWAY_POLL_MS = 500;
+const MOTO_GATEWAY_TIMEOUT_MS = 900;
 let infoTimer = null;
 let distanceKm = 0;
 let temperatureC = null;
@@ -76,6 +78,13 @@ let lastWeatherFetchTime = 0;
 let lastTouchEndTime = 0;
 let clockMode = localStorage.getItem('clockMode') === 'elapsed' ? 'elapsed' : 'time';
 let sessionStartTime = null;
+let motoGatewayTimer = null;
+let motoGatewayStatusUrl = null;
+let motoGatewayConfig = null;
+let motoGatewayActive = false;
+let motoGatewayBaseDistanceKm = null;
+let motoGatewayLastSpeedTime = null;
+let motoGatewayPollInFlight = false;
 
 function lockPageZoom() {
   document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -242,6 +251,144 @@ function startInfoCycler() {
   infoTimer = window.setInterval(updateInfoPanel, 1000);
 }
 
+// --- ESP32 Moto Gateway ---
+
+function uniqueUrls(urls) {
+  return [...new Set(urls.filter(Boolean))];
+}
+
+function getMotoGatewayUrls() {
+  const savedUrl = localStorage.getItem('motoGatewayStatusUrl');
+  const urls = [
+    savedUrl,
+    'http://moto.local/status',
+    'http://192.168.4.1/status',
+  ];
+
+  if (location.protocol === 'http:' && location.hostname) {
+    urls.unshift(`${location.origin}/status`);
+  }
+
+  return uniqueUrls(urls);
+}
+
+async function fetchJsonWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+function configUrlFromStatusUrl(statusUrl) {
+  return statusUrl.replace(/\/status(?:\?.*)?$/, '/config');
+}
+
+async function fetchMotoGatewayConfig() {
+  if (!motoGatewayStatusUrl) return;
+
+  try {
+    const config = await fetchJsonWithTimeout(configUrlFromStatusUrl(motoGatewayStatusUrl), MOTO_GATEWAY_TIMEOUT_MS);
+    if (
+      Number.isFinite(config?.speedPulsesPerWheelRev) &&
+      Number.isFinite(config?.wheelCircumferenceM)
+    ) {
+      motoGatewayConfig = config;
+    }
+  } catch (err) {
+    console.warn('No se pudo leer /config del ESP32:', err);
+  }
+}
+
+function gatewayDistanceKm(data) {
+  if (!motoGatewayConfig) return null;
+  if (!Number.isFinite(data?.totalSpeedPulses)) return null;
+
+  const pulsesPerRev = Number(motoGatewayConfig.speedPulsesPerWheelRev);
+  const circumferenceM = Number(motoGatewayConfig.wheelCircumferenceM);
+  if (pulsesPerRev <= 0 || circumferenceM <= 0) return null;
+
+  return (data.totalSpeedPulses / pulsesPerRev) * circumferenceM / 1000;
+}
+
+function updateDistanceFromGateway(data, speedMs, now) {
+  const rawDistanceKm = gatewayDistanceKm(data);
+
+  if (Number.isFinite(rawDistanceKm)) {
+    if (motoGatewayBaseDistanceKm === null) {
+      motoGatewayBaseDistanceKm = rawDistanceKm;
+    }
+    distanceKm = Math.max(0, rawDistanceKm - motoGatewayBaseDistanceKm);
+    motoGatewayLastSpeedTime = now;
+    updateInfoPanel();
+    return;
+  }
+
+  if (motoGatewayLastSpeedTime !== null) {
+    const dt = Math.max(0, (now - motoGatewayLastSpeedTime) / 1000);
+    if (dt < 3) distanceKm += speedMs * dt / 1000;
+  }
+  motoGatewayLastSpeedTime = now;
+  updateInfoPanel();
+}
+
+function applyMotoGatewayStatus(data) {
+  if (!Number.isFinite(data?.speedKmh)) return;
+
+  const now = Date.now();
+  const speedMs = Math.max(0, data.speedKmh / 3.6);
+  motoGatewayActive = true;
+  smoothedSpeedMs = speedMs;
+  lastSmoothTime = now;
+
+  renderSpeed(speedMs);
+  updateGpsAcceleration(speedMs, now);
+  updateDistanceFromGateway(data, speedMs, now);
+  setStatus('Moto Gateway activo', 'ok');
+}
+
+async function pollMotoGateway() {
+  if (motoGatewayPollInFlight) return;
+  motoGatewayPollInFlight = true;
+
+  try {
+    const urls = motoGatewayStatusUrl ? [motoGatewayStatusUrl, ...getMotoGatewayUrls()] : getMotoGatewayUrls();
+
+    for (const url of uniqueUrls(urls)) {
+      try {
+        const data = await fetchJsonWithTimeout(url, MOTO_GATEWAY_TIMEOUT_MS);
+        motoGatewayStatusUrl = url;
+        localStorage.setItem('motoGatewayStatusUrl', url);
+        if (!motoGatewayConfig) void fetchMotoGatewayConfig();
+        applyMotoGatewayStatus(data);
+        return;
+      } catch (err) {
+        // Silencioso a propósito: si el módulo no está, seguimos con GPS.
+      }
+    }
+
+    motoGatewayActive = false;
+    motoGatewayLastSpeedTime = null;
+  } finally {
+    motoGatewayPollInFlight = false;
+  }
+}
+
+function startMotoGatewayPolling() {
+  if (motoGatewayTimer !== null) return;
+
+  void pollMotoGateway();
+  motoGatewayTimer = window.setInterval(pollMotoGateway, MOTO_GATEWAY_POLL_MS);
+}
+
 async function fetchWeather(lat, lon) {
   const now = Date.now();
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
@@ -316,6 +463,11 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
 }
 
 function handleDistance(lat, lon, timestamp) {
+  if (motoGatewayActive) {
+    lastFix = { lat, lon, time: timestamp };
+    return;
+  }
+
   if (lastFix && Number.isFinite(lat) && Number.isFinite(lon)) {
     const dist = haversineMeters(lastFix.lat, lastFix.lon, lat, lon);
     if (Number.isFinite(dist) && dist < 2000) {
@@ -386,6 +538,20 @@ function handlePosition(loc) {
     }
   }
   handleDistance(coords.latitude, coords.longitude, timestamp);
+
+  if (motoGatewayActive) {
+    if (typeof coords.accuracy === 'number') {
+      accuracyText.textContent = `±${coords.accuracy.toFixed(0)} m`;
+      accuracyIcon.classList.remove('quality-1', 'quality-2', 'quality-3');
+      if (coords.accuracy <= 6) accuracyIcon.classList.add('quality-3');
+      else if (coords.accuracy <= 12) accuracyIcon.classList.add('quality-2');
+      else accuracyIcon.classList.add('quality-1');
+    }
+    void fetchWeather(coords.latitude, coords.longitude);
+    updateInfoPanel();
+    setStatus('Moto Gateway activo', 'ok');
+    return;
+  }
 
   if (speedMs === null || speedMs === undefined || Number.isNaN(speedMs) || speedMs < SPEED_STOP_THRESHOLD) {
     speedMs = 0;
@@ -686,15 +852,7 @@ async function requestMotionPermission() {
 // --- Arranque ---
 
 async function start() {
-  if (!window.isSecureContext) {
-    setStatus('Esta app necesita HTTPS para acceder al GPS.', 'error');
-    return;
-  }
-
-  if (!('geolocation' in navigator)) {
-    setStatus('Este navegador no soporta la API de geolocalización.', 'error');
-    return;
-  }
+  const gpsAvailable = window.isSecureContext && 'geolocation' in navigator;
 
   sessionStartTime = Date.now();
   startBtn.hidden = true;
@@ -702,17 +860,22 @@ async function start() {
   cornerStats.hidden = false;
   updateInfoPanel();
   startInfoCycler();
-  setStatus('Buscando señal GPS…');
+  startMotoGatewayPolling();
+  setStatus(gpsAvailable ? 'Buscando señal GPS…' : 'Buscando Moto Gateway…');
 
   requestWakeLock();
 
-  watchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
-    enableHighAccuracy: true,
-    maximumAge: 0,
-    timeout: 15000,
-  });
+  if (gpsAvailable) {
+    watchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 15000,
+    });
+  } else {
+    console.warn('GPS no disponible: la web necesita HTTPS o un origen seguro para usar geolocalizacion.');
+  }
 
-  const motionGranted = await requestMotionPermission();
+  const motionGranted = window.isSecureContext && await requestMotionPermission();
   if (motionGranted) {
     window.addEventListener('devicemotion', handleMotion);
     leanPlaceholder.hidden = true;
