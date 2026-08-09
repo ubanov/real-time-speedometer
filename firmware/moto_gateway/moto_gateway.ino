@@ -5,14 +5,17 @@
   Es una conversion del antiguo ejemplo BLE a una API HTTP sencilla.
 
   Endpoints:
-    GET  /status
-    GET  /config
-    POST /command
+    GET  /
+    GET  /api/v1
+    GET  /api/v1/health
+    GET  /api/v1/status
+    GET  /api/v1/config
+    POST /api/v1/command
 
   Por defecto crea un punto de acceso:
     SSID: MotoGateway
     PASS: moto12345
-    URL:  http://192.168.4.1/status
+    URL:  http://192.168.4.1/api/v1/status
 
   Si rellenas WIFI_SSID/WIFI_PASS, tambien intenta conectarse a esa red.
 */
@@ -21,7 +24,7 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 
-#define FW_VERSION "0.1.0"
+#define FW_VERSION "0.2.0"
 #define DEVICE_NAME "MotoGateway"
 
 // --- WiFi ---
@@ -275,6 +278,44 @@ void refreshState() {
 
 // --- API ---
 
+String apiRootJson() {
+  String json = "{";
+  json += "\"online\":true,";
+  json += "\"device\":\"" DEVICE_NAME "\",";
+  json += "\"version\":\"" FW_VERSION "\",";
+  json += "\"apiVersion\":\"v1\",";
+  json += "\"endpoints\":{";
+  json += "\"root\":\"/api/v1\",";
+  json += "\"health\":\"/api/v1/health\",";
+  json += "\"status\":\"/api/v1/status\",";
+  json += "\"config\":\"/api/v1/config\",";
+  json += "\"command\":\"/api/v1/command\"";
+  json += "},";
+  json += "\"legacyEndpoints\":[\"/status\",\"/config\",\"/command\"],";
+  json += "\"network\":{";
+  json += "\"staIp\":\"";
+  json += ipToString(WiFi.localIP());
+  json += "\",";
+  json += "\"apIp\":\"";
+  json += ipToString(WiFi.softAPIP());
+  json += "\"";
+  json += "}";
+  json += "}";
+  return json;
+}
+
+String healthJson() {
+  String json = "{";
+  json += "\"ok\":true,";
+  json += "\"device\":\"" DEVICE_NAME "\",";
+  json += "\"version\":\"" FW_VERSION "\",";
+  json += "\"apiVersion\":\"v1\",";
+  json += "\"uptimeMs\":";
+  json += String(millis());
+  json += "}";
+  return json;
+}
+
 String statusJson() {
   String json = "{";
   json += "\"online\":true,";
@@ -376,7 +417,8 @@ String configJson() {
   json += "\"starterMaxMs\":";
   json += String(STARTER_MAX_MS);
   json += ",";
-  json += "\"endpoints\":[\"/status\",\"/config\",\"/command\"]";
+  json += "\"endpoints\":[\"/api/v1/health\",\"/api/v1/status\",\"/api/v1/config\",\"/api/v1/command\"],";
+  json += "\"legacyEndpoints\":[\"/status\",\"/config\",\"/command\"]";
   json += "}";
   return json;
 }
@@ -403,6 +445,14 @@ uint32_t readCommandMs(const String &key, uint32_t fallback) {
 void handleStatus() {
   refreshState();
   sendJson(200, statusJson());
+}
+
+void handleApiRoot() {
+  sendJson(200, apiRootJson());
+}
+
+void handleHealth() {
+  sendJson(200, healthJson());
 }
 
 void handleConfig() {
@@ -506,11 +556,25 @@ void setupWifi() {
 
   if (MDNS.begin(MDNS_NAME)) {
     MDNS.addService("http", "tcp", 80);
-    Serial.println("mDNS: http://moto.local/");
+    Serial.println("mDNS: http://moto.local/api/v1/status");
   }
 }
 
 void setupServer() {
+  server.on("/", HTTP_GET, handleApiRoot);
+  server.on("/", HTTP_OPTIONS, handleOptions);
+  server.on("/api/v1", HTTP_GET, handleApiRoot);
+  server.on("/api/v1", HTTP_OPTIONS, handleOptions);
+
+  server.on("/api/v1/health", HTTP_GET, handleHealth);
+  server.on("/api/v1/status", HTTP_GET, handleStatus);
+  server.on("/api/v1/config", HTTP_GET, handleConfig);
+  server.on("/api/v1/command", HTTP_POST, handleCommand);
+  server.on("/api/v1/health", HTTP_OPTIONS, handleOptions);
+  server.on("/api/v1/status", HTTP_OPTIONS, handleOptions);
+  server.on("/api/v1/config", HTTP_OPTIONS, handleOptions);
+  server.on("/api/v1/command", HTTP_OPTIONS, handleOptions);
+
   server.on("/status", HTTP_GET, handleStatus);
   server.on("/config", HTTP_GET, handleConfig);
   server.on("/command", HTTP_POST, handleCommand);

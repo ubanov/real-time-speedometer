@@ -103,18 +103,38 @@ El firmware actual crea por defecto un punto de acceso WiFi:
 ```text
 SSID: MotoGateway
 PASS: moto12345
-URL:  http://192.168.4.1/status
+URL:  http://192.168.4.1/api/v1/status
 ```
 
 Tambien intenta publicar mDNS en:
 
 ```text
-http://moto.local/status
+http://moto.local/api/v1/status
 ```
 
 Si se rellenan `WIFI_SSID` y `WIFI_PASS` en el `.ino`, el ESP32 mantiene el AP y ademas intenta conectarse a esa red como cliente.
 
-### `GET /status`
+### `GET /` o `GET /api/v1`
+
+Devuelve un indice JSON de la API, version, endpoints disponibles e IPs actuales.
+
+### `GET /api/v1/health`
+
+Devuelve una comprobacion ligera para saber si el modulo esta vivo.
+
+Ejemplo:
+
+```json
+{
+  "ok": true,
+  "device": "MotoGateway",
+  "version": "0.2.0",
+  "apiVersion": "v1",
+  "uptimeMs": 123456
+}
+```
+
+### `GET /api/v1/status`
 
 Devuelve el ultimo estado conocido.
 
@@ -147,7 +167,7 @@ Ejemplo:
 }
 ```
 
-### `GET /config`
+### `GET /api/v1/config`
 
 Devuelve configuracion activa:
 
@@ -157,7 +177,7 @@ Devuelve configuracion activa:
 - Timeouts.
 - Version de firmware.
 
-### `POST /command`
+### `POST /api/v1/command`
 
 Ejecuta acciones controladas.
 
@@ -180,9 +200,9 @@ Canal para actualizaciones frecuentes.
 La web podria usar:
 
 - WebSocket si esta disponible.
-- Polling de `/status` como fallback.
+- Polling de `/api/v1/status` como fallback.
 
-Este canal aun no esta implementado. La primera version usa polling HTTP contra `/status`.
+Este canal aun no esta implementado. La primera version usa polling HTTP contra `/api/v1/status`.
 
 ## Integracion con la web actual
 
@@ -190,8 +210,8 @@ La web intentara detectar el ESP32 al arrancar.
 
 Posibles URLs:
 
-- `http://moto.local/status`
-- `http://192.168.4.1/status`
+- `http://moto.local/api/v1/status`
+- `http://192.168.4.1/api/v1/status`
 - URL configurable en localStorage.
 
 Si el ESP32 responde:
@@ -248,9 +268,12 @@ Incluye:
 - Punto de acceso `MotoGateway`.
 - Servidor HTTP en el puerto `80`.
 - CORS abierto para que la web pueda consultar la API desde otro origen.
-- `GET /status`.
-- `GET /config`.
-- `POST /command`.
+- `GET /api/v1`.
+- `GET /api/v1/health`.
+- `GET /api/v1/status`.
+- `GET /api/v1/config`.
+- `POST /api/v1/command`.
+- Aliases antiguos `/status`, `/config` y `/command`.
 - Calculo provisional de velocidad y RPM por pulsos.
 - Estado de testigos, botones, reles y alimentacion.
 - Control automatico provisional del rele de luz.
@@ -258,8 +281,8 @@ Incluye:
 
 La web principal intenta consultar automaticamente:
 
-- `http://moto.local/status`
-- `http://192.168.4.1/status`
+- `http://moto.local/api/v1/status`
+- `http://192.168.4.1/api/v1/status`
 
 Si responde, usa la velocidad del ESP32 como fuente principal. Si no responde, sigue usando GPS.
 
@@ -268,7 +291,7 @@ Importante: los pines son provisionales. Las entradas de `GPIO34` y `GPIO35` no 
 ## Siguientes pasos
 
 1. Validar que compila en el modelo exacto de ESP32.
-2. Probar `/status` desde el movil conectado al AP `MotoGateway`.
+2. Probar `/api/v1/status` desde el movil conectado al AP `MotoGateway`.
 3. Simular pulsos de velocidad/RPM en banco.
 4. Ajustar `SPEED_PULSES_PER_WHEEL_REV`, `WHEEL_CIRCUMFERENCE_M` y `RPM_PULSES_PER_REV`.
 5. Definir el acondicionamiento electrico real de entradas de 12 V.

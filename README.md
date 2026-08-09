@@ -79,15 +79,19 @@ firmware/moto_gateway/moto_gateway.ino
 
 El ESP32 crea un punto de acceso WiFi `MotoGateway` y expone una API HTTP:
 
-- `GET /status`: velocidad, RPM, testigos, botones, reles y energia.
-- `GET /config`: configuracion activa de pulsos, rueda y timeouts.
-- `POST /command`: comandos controlados para luz y arranque.
+- `GET /` o `GET /api/v1`: indice JSON de la API.
+- `GET /api/v1/health`: comprobacion rapida de disponibilidad.
+- `GET /api/v1/status`: velocidad, RPM, testigos, botones, reles y energia.
+- `GET /api/v1/config`: configuracion activa de pulsos, rueda y timeouts.
+- `POST /api/v1/command`: comandos controlados para luz y arranque.
+
+Las rutas antiguas `/status`, `/config` y `/command` siguen disponibles como alias.
 
 La web intenta detectar automaticamente:
 
 ```text
-http://moto.local/status
-http://192.168.4.1/status
+http://moto.local/api/v1/status
+http://192.168.4.1/api/v1/status
 ```
 
 Si el ESP32 responde, la velocidad y la distancia pasan a salir del gateway. Si no responde, la aplicacion sigue usando GPS como antes.

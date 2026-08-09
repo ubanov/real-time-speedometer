@@ -261,12 +261,14 @@ function getMotoGatewayUrls() {
   const savedUrl = localStorage.getItem('motoGatewayStatusUrl');
   const urls = [
     savedUrl,
+    'http://moto.local/api/v1/status',
+    'http://192.168.4.1/api/v1/status',
     'http://moto.local/status',
     'http://192.168.4.1/status',
   ];
 
   if (location.protocol === 'http:' && location.hostname) {
-    urls.unshift(`${location.origin}/status`);
+    urls.unshift(`${location.origin}/api/v1/status`, `${location.origin}/status`);
   }
 
   return uniqueUrls(urls);
