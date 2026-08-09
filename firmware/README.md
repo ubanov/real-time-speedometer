@@ -115,7 +115,7 @@ El firmware actual crea por defecto un punto de acceso WiFi:
 ```text
 SSID: MotoGateway
 PASS: moto12345
-URL:  http://192.168.4.1/api/v1/status
+URL:  http://192.168.10.1/api/v1/status
 ```
 
 Tambien intenta publicar mDNS en:
@@ -223,7 +223,7 @@ La web intentara detectar el ESP32 al arrancar.
 Posibles URLs:
 
 - `http://moto.local/api/v1/status`
-- `http://192.168.4.1/api/v1/status`
+- `http://192.168.10.1/api/v1/status`
 - URL configurable en localStorage.
 
 Si el ESP32 responde:
@@ -294,7 +294,7 @@ Incluye:
 La web principal intenta consultar automaticamente:
 
 - `http://moto.local/api/v1/status`
-- `http://192.168.4.1/api/v1/status`
+- `http://192.168.10.1/api/v1/status`
 
 Si responde, usa la velocidad del ESP32 como fuente principal. Si no responde, sigue usando GPS.
 

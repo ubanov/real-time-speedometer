@@ -262,9 +262,9 @@ function getMotoGatewayUrls() {
   const urls = [
     savedUrl,
     'http://moto.local/api/v1/status',
-    'http://192.168.4.1/api/v1/status',
+    'http://192.168.10.1/api/v1/status',
     'http://moto.local/status',
-    'http://192.168.4.1/status',
+    'http://192.168.10.1/status',
   ];
 
   if (location.protocol === 'http:' && location.hostname) {

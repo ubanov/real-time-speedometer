@@ -15,7 +15,7 @@
   Por defecto crea un punto de acceso:
     SSID: MotoGateway
     PASS: moto12345
-    URL:  http://192.168.4.1/api/v1/status
+    URL:  http://192.168.10.1/api/v1/status
 
   Si rellenas WIFI_SSID/WIFI_PASS, tambien intenta conectarse a esa red.
 */
@@ -35,6 +35,10 @@ const char *WIFI_PASS = "";
 const char *AP_SSID = "MotoGateway";
 const char *AP_PASS = "moto12345";
 const char *MDNS_NAME = "moto";
+
+IPAddress AP_IP(192, 168, 10, 1);
+IPAddress AP_GATEWAY(192, 168, 10, 1);
+IPAddress AP_SUBNET(255, 255, 255, 0);
 
 // --- Pines provisionales ---
 // Ajustar cuando definamos el cableado real. Evitamos pines de strapping
@@ -533,6 +537,7 @@ void setupPins() {
 void setupWifi() {
   WiFi.mode(WIFI_AP_STA);
 
+  WiFi.softAPConfig(AP_IP, AP_GATEWAY, AP_SUBNET);
   WiFi.softAP(AP_SSID, AP_PASS);
   Serial.print("AP IP: ");
   Serial.println(WiFi.softAPIP());

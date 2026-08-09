@@ -533,7 +533,7 @@ Con divisor 100k/100k, el ADC ve la mitad de la tension de bateria.
 ## Orden de montaje
 
 1. Montar solo ESP32 + buck 12 V a 5 V.
-2. Flashear firmware y comprobar `http://192.168.4.1/api/v1/health`.
+2. Flashear firmware y comprobar `http://192.168.10.1/api/v1/health`.
 3. Montar un PC817C de testigo en banco con fuente de 12 V limitada.
 4. Repetir los 6 testigos.
 5. Montar velocidad con generador de pulsos o Arduino.

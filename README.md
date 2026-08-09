@@ -91,7 +91,7 @@ La web intenta detectar automaticamente:
 
 ```text
 http://moto.local/api/v1/status
-http://192.168.4.1/api/v1/status
+http://192.168.10.1/api/v1/status
 ```
 
 Si el ESP32 responde, la velocidad y la distancia pasan a salir del gateway. Si no responde, la aplicacion sigue usando GPS como antes.
