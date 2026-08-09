@@ -10,6 +10,12 @@ El diseno hardware/software detallado esta en:
 firmware/HARDWARE_SOFTWARE_DESIGN.md
 ```
 
+La lista de compra y cableado del primer prototipo esta en:
+
+```text
+firmware/BOM_AND_WIRING.md
+```
+
 ## Objetivo
 
 Crear un modulo independiente conectado a la moto que proporcione:
@@ -292,7 +298,7 @@ La web principal intenta consultar automaticamente:
 
 Si responde, usa la velocidad del ESP32 como fuente principal. Si no responde, sigue usando GPS.
 
-Importante: los pines son provisionales. Las entradas de `GPIO34` y `GPIO35` no tienen pull-up interno en ESP32, asi que los botones necesitan pull-up/pull-down externo si se mantienen esos pines.
+Importante: el pinout actual esta pensado para `ESP32-S3-DevKitC-1-N8`. Si se usa una variante con PSRAM como `N8R8`, evitar `GPIO35`, `GPIO36` y `GPIO37` porque pueden estar reservados internamente.
 
 ## Siguientes pasos
 

@@ -40,24 +40,24 @@ const char *MDNS_NAME = "moto";
 // Ajustar cuando definamos el cableado real. Evitamos pines de strapping
 // delicados donde sea posible.
 
-const uint8_t PIN_SPEED = 27;
-const uint8_t PIN_RPM = 26;
+const uint8_t PIN_SPEED = 4;
+const uint8_t PIN_RPM = 5;
 
-const uint8_t PIN_TURN_LEFT = 32;
-const uint8_t PIN_TURN_RIGHT = 33;
-const uint8_t PIN_NEUTRAL = 25;
-const uint8_t PIN_HIGH_BEAM = 14;
-const uint8_t PIN_ENGINE_ON = 23;
-const uint8_t PIN_KEY_ON = 13;
+const uint8_t PIN_TURN_LEFT = 6;
+const uint8_t PIN_TURN_RIGHT = 7;
+const uint8_t PIN_NEUTRAL = 8;
+const uint8_t PIN_HIGH_BEAM = 9;
+const uint8_t PIN_ENGINE_ON = 10;
+const uint8_t PIN_KEY_ON = 11;
 
-const uint8_t PIN_BUTTON_WAKE = 34;
-const uint8_t PIN_BUTTON_ACTION = 35;
+const uint8_t PIN_BUTTON_WAKE = 12;
+const uint8_t PIN_BUTTON_ACTION = 13;
 
 const uint8_t PIN_RELAY_LIGHT = 16;
 const uint8_t PIN_RELAY_STARTER = 17;
 
-const uint8_t PIN_BIKE_VOLTAGE = 36;
-const uint8_t PIN_ESP_BATTERY = 39;
+const uint8_t PIN_BIKE_VOLTAGE = 1;
+const uint8_t PIN_ESP_BATTERY = 2;
 
 // --- Configuracion de medida ---
 

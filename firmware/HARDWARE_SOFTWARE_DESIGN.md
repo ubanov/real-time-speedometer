@@ -21,8 +21,8 @@ No es todavia un esquema electrico cerrado para fabricar PCB. Es una especificac
 Para este proyecto se recomienda:
 
 ```text
-Prototipo: ESP32-S3-DevKitC-1-N8R8
-Diseno final: ESP32-S3-WROOM-1-N8R8 en placa propia
+Prototipo: ESP32-S3-DevKitC-1-N8
+Diseno final: ESP32-S3-WROOM-1-N8 en placa propia
 ```
 
 Motivos:
@@ -33,6 +33,7 @@ Motivos:
 - Tiene USB nativo, comodo para flashear y depurar.
 - Tiene modos de bajo consumo, pero el consumo real dependera mucho de la placa, regulador, LEDs y perifericos externos.
 - Deja margen para migrar velocidad/RPM a PCNT con filtro de glitch.
+- Evita la reserva de GPIO35/GPIO36/GPIO37 que aparece en variantes con PSRAM Octal como las `R8`.
 
 No se recomienda usar una placa de desarrollo completa como hardware final si el objetivo es bateria de larga duracion. Muchas devboards llevan LED de power, conversor USB-serie y reguladores con consumo en reposo que arruinan el deep sleep.
 
@@ -201,8 +202,8 @@ GPIO -> pull-up 10k a 3.3 V
 
 Notas:
 
-- GPIO34 y GPIO35 del ESP32 son solo entrada y no tienen pull-up interno.
-- Si se mantienen esos pines, el pull-up externo es obligatorio.
+- En este prototipo los botones van a GPIO12 y GPIO13.
+- Se usan pull-ups externos de 10k para que el estado de reposo sea estable incluso durante arranque/deep sleep.
 - Anadir filtro por software de 20-50 ms.
 
 ## Salidas de rele
@@ -283,20 +284,20 @@ El firmware actual usa:
 
 | Funcion | GPIO |
 | --- | ---: |
-| Velocidad | 27 |
-| RPM | 26 |
-| Intermitente izquierdo | 32 |
-| Intermitente derecho | 33 |
-| Punto muerto | 25 |
-| Luz larga | 14 |
-| Motor encendido | 23 |
-| Llave/contacto | 13 |
-| Boton wake | 34 |
-| Boton accion | 35 |
+| Velocidad | 4 |
+| RPM | 5 |
+| Intermitente izquierdo | 6 |
+| Intermitente derecho | 7 |
+| Punto muerto | 8 |
+| Luz larga | 9 |
+| Motor encendido | 10 |
+| Llave/contacto | 11 |
+| Boton wake | 12 |
+| Boton accion | 13 |
 | Rele luz | 16 |
 | Rele arranque | 17 |
-| Voltaje moto ADC | 36 |
-| Bateria ESP ADC | 39 |
+| Voltaje moto ADC | 1 |
+| Bateria ESP ADC | 2 |
 
 Pendiente revisar con la placa ESP32 exacta y evitar pines problematicos de arranque.
 
