@@ -16,6 +16,12 @@ La lista de compra y cableado del primer prototipo esta en:
 firmware/BOM_AND_WIRING.md
 ```
 
+El hardware final instalable, pensado para montar una vez y activar funciones por software despues, esta en:
+
+```text
+firmware/FINAL_HARDWARE_PLAN.md
+```
+
 ## Objetivo
 
 Crear un modulo independiente conectado a la moto que proporcione:
