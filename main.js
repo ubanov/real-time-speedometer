@@ -1,5 +1,7 @@
 'use strict';
 
+const APP_VERSION = '0.9.2';
+const versionEl = document.getElementById('version');
 const speedDiv = document.getElementById('speed');
 const distanceValue = document.getElementById('distanceValue');
 const distanceUnit = document.getElementById('distanceUnit');
@@ -927,6 +929,7 @@ startBtn.addEventListener('click', start, { once: true });
 
 // --- Init ---
 
+if (versionEl) versionEl.textContent = `v${APP_VERSION}`;
 lockPageZoom();
 setUnitButtonLabel();
 buildGauge(UNITS[unitIndex]);
@@ -941,7 +944,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   window.addEventListener('load', () => {
     // updateViaCache: 'none' obliga al navegador a comprobar siempre contra
     // el servidor si sw.js ha cambiado, en vez de fiarse de la caché HTTP.
-    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch((err) => {
+    navigator.serviceWorker.register('sw.js?v=0.9.2', { updateViaCache: 'none' }).catch((err) => {
       console.warn('No se pudo registrar el Service Worker:', err);
     });
   });
