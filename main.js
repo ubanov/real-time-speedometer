@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '0.9.2';
+const APP_VERSION = '0.9.3';
 const versionEl = document.getElementById('version');
 const speedDiv = document.getElementById('speed');
 const distanceValue = document.getElementById('distanceValue');
@@ -647,7 +647,7 @@ let filteredGravityY = null;
 // En moto el acelerómetro físico recoge demasiada vibración. Para aceleración
 // usamos diferencia de velocidad; para inclinación priorizamos DeviceOrientation,
 // que en iPhone suele venir de la fusión de sensores del sistema.
-const LEAN_TAU = 1.1;
+const LEAN_TAU = 0.65;
 const ACCEL_GPS_TAU = 0.9;
 const MOTION_RENDER_MS = 250;
 let lastMotionRenderTime = 0;
@@ -944,7 +944,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   window.addEventListener('load', () => {
     // updateViaCache: 'none' obliga al navegador a comprobar siempre contra
     // el servidor si sw.js ha cambiado, en vez de fiarse de la caché HTTP.
-    navigator.serviceWorker.register('sw.js?v=0.9.2', { updateViaCache: 'none' }).catch((err) => {
+    navigator.serviceWorker.register('sw.js?v=0.9.3', { updateViaCache: 'none' }).catch((err) => {
       console.warn('No se pudo registrar el Service Worker:', err);
     });
   });
