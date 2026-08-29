@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '0.9.3';
+const APP_VERSION = '0.9.4';
 const versionEl = document.getElementById('version');
 const speedDiv = document.getElementById('speed');
 const distanceValue = document.getElementById('distanceValue');
@@ -43,6 +43,11 @@ const cornerGps = document.getElementById('cornerGps');
 // lecturas típico del GPS, converge al valor real en 1-2 lecturas.
 const SPEED_TAU = 0.5;
 const SPEED_STOP_THRESHOLD = 0.3; // m/s por debajo de esto se considera "parado"
+const GPS_WARN_ACCURACY_M = 35;
+const GPS_BAD_ACCURACY_M = 80;
+const GPS_HOLD_MS = 3000;
+const GPS_MAX_SPEED_MS = 70; // 252 km/h, por encima lo tratamos como salto GPS.
+const GPS_MAX_ACCEL_MS2 = 8;
 
 // greenEnd/yellowEnd/max están alineados con el uso en moto: los límites
 // de km/h son los de referencia (0-120-160-200) y el resto de unidades
@@ -66,6 +71,7 @@ let smoothedSpeedMs = null;
 let lastSmoothTime = null;
 let lastAccelSpeedMs = null;
 let lastAccelSpeedTime = null;
+let lastReliableGpsTime = null;
 let unitIndex = Number(localStorage.getItem('speedUnitIndex')) || 0;
 if (unitIndex < 0 || unitIndex >= UNITS.length) unitIndex = 0;
 
@@ -218,6 +224,11 @@ function renderSpeed(speedMs) {
   const valueText = displayKmh >= 20 ? String(Math.round(displayValue)) : formatCompactDecimal(displayValue, 1, 'speedDecimal');
   if (speedDiv) speedDiv.innerHTML = valueText;
   renderNeedle(angleForValue(displayValue, unit.max));
+}
+
+function renderSpeedUnavailable() {
+  if (speedDiv) speedDiv.textContent = 'n/d';
+  renderNeedle(angleForValue(0, UNITS[unitIndex].max));
 }
 
 function renderDistance() {
@@ -466,6 +477,61 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
+function updateGpsAccuracy(coords) {
+  if (typeof coords.accuracy !== 'number') return;
+
+  accuracyText.textContent = `±${coords.accuracy.toFixed(0)} m`;
+  accuracyIcon.classList.remove('quality-1', 'quality-2', 'quality-3');
+  if (coords.accuracy <= 6) accuracyIcon.classList.add('quality-3');
+  else if (coords.accuracy <= 12) accuracyIcon.classList.add('quality-2');
+  else accuracyIcon.classList.add('quality-1');
+}
+
+function isGpsFixReliable(coords, timestamp, speedMs) {
+  if (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) return false;
+  if (typeof coords.accuracy === 'number' && coords.accuracy > GPS_BAD_ACCURACY_M) return false;
+  if (Number.isFinite(speedMs) && speedMs > GPS_MAX_SPEED_MS) return false;
+
+  if (lastFix) {
+    const dt = (timestamp - lastFix.time) / 1000;
+    if (dt > 0.2) {
+      const dist = haversineMeters(lastFix.lat, lastFix.lon, coords.latitude, coords.longitude);
+      const impliedSpeed = dist / dt;
+      if (dt < 10 && impliedSpeed > GPS_MAX_SPEED_MS) return false;
+      if (dist > Math.max(140, GPS_MAX_SPEED_MS * dt * 1.6)) return false;
+    }
+  }
+
+  if (lastAccelSpeedMs !== null && lastAccelSpeedTime !== null && Number.isFinite(speedMs)) {
+    const dt = (timestamp - lastAccelSpeedTime) / 1000;
+    if (dt > 0.2 && dt < 5) {
+      const accel = Math.abs(speedMs - lastAccelSpeedMs) / dt;
+      if (accel > GPS_MAX_ACCEL_MS2) return false;
+    }
+  }
+
+  return true;
+}
+
+function handleUnreliableGps(coords) {
+  updateGpsAccuracy(coords);
+
+  const hasRecentGoodFix = lastReliableGpsTime !== null && Date.now() - lastReliableGpsTime < GPS_HOLD_MS;
+  if (hasRecentGoodFix && smoothedSpeedMs !== null) {
+    renderSpeed(smoothedSpeedMs);
+    setStatus('GPS débil, manteniendo velocidad');
+  } else {
+    smoothedSpeedMs = null;
+    lastSmoothTime = null;
+    lastAccelSpeedMs = null;
+    lastAccelSpeedTime = null;
+    renderSpeedUnavailable();
+    smoothAccelToward(0, performance.now());
+    renderAccel(smoothedAccelG);
+    setStatus('Velocidad n/d: GPS sin señal fiable', 'error');
+  }
+}
+
 function handleDistance(lat, lon, timestamp) {
   if (motoGatewayActive) {
     lastFix = { lat, lon, time: timestamp };
@@ -482,12 +548,14 @@ function handleDistance(lat, lon, timestamp) {
   updateInfoPanel();
 }
 
-function smoothAccelToward(targetG, now, tau) {
+function smoothAccelToward(targetG, now) {
   const target = Math.max(-ACCEL_MAX_G, Math.min(ACCEL_MAX_G, targetG));
   if (lastAccelTime === null) {
     smoothedAccelG = target;
   } else {
     const dt = Math.max(0.001, (now - lastAccelTime) / 1000);
+    const isGrowing = Math.abs(target) > Math.abs(smoothedAccelG) || Math.sign(target) !== Math.sign(smoothedAccelG);
+    const tau = isGrowing ? ACCEL_ATTACK_TAU : ACCEL_RELEASE_TAU;
     const alpha = 1 - Math.exp(-dt / tau);
     smoothedAccelG = alpha * target + (1 - alpha) * smoothedAccelG;
   }
@@ -500,7 +568,7 @@ function updateGpsAcceleration(speedMs, timestamp) {
     let gpsAccelG = (speedMs - lastAccelSpeedMs) / dt / G;
     if (Math.abs(gpsAccelG) < ACCEL_DEADZONE_G) gpsAccelG = 0;
 
-    smoothAccelToward(gpsAccelG, performance.now(), ACCEL_GPS_TAU);
+    smoothAccelToward(gpsAccelG, performance.now());
     renderAccel(smoothedAccelG);
   }
 
@@ -525,6 +593,8 @@ document.addEventListener('visibilitychange', () => {
 
 function handlePosition(loc) {
   const { coords, timestamp } = loc;
+  updateGpsAccuracy(coords);
+
   let speedMs = coords.speed;
 
   // iOS Safari a menudo no reporta coords.speed; lo calculamos a partir
@@ -538,16 +608,8 @@ function handlePosition(loc) {
       }
     }
   }
-  handleDistance(coords.latitude, coords.longitude, timestamp);
 
   if (motoGatewayActive) {
-    if (typeof coords.accuracy === 'number') {
-      accuracyText.textContent = `±${coords.accuracy.toFixed(0)} m`;
-      accuracyIcon.classList.remove('quality-1', 'quality-2', 'quality-3');
-      if (coords.accuracy <= 6) accuracyIcon.classList.add('quality-3');
-      else if (coords.accuracy <= 12) accuracyIcon.classList.add('quality-2');
-      else accuracyIcon.classList.add('quality-1');
-    }
     void fetchWeather(coords.latitude, coords.longitude);
     updateInfoPanel();
     setStatus('Moto Gateway activo', 'ok');
@@ -557,6 +619,15 @@ function handlePosition(loc) {
   if (speedMs === null || speedMs === undefined || Number.isNaN(speedMs) || speedMs < SPEED_STOP_THRESHOLD) {
     speedMs = 0;
   }
+
+  if (!isGpsFixReliable(coords, timestamp, speedMs)) {
+    handleUnreliableGps(coords);
+    return;
+  }
+
+  const wasGpsUnavailable = lastReliableGpsTime === null || Date.now() - lastReliableGpsTime > GPS_HOLD_MS;
+  lastReliableGpsTime = Date.now();
+  handleDistance(coords.latitude, coords.longitude, timestamp);
 
   if (smoothedSpeedMs === null || lastSmoothTime === null) {
     smoothedSpeedMs = speedMs;
@@ -573,20 +644,19 @@ function handlePosition(loc) {
     smoothedSpeedMs = 0;
   }
 
-  updateGpsAcceleration(smoothedSpeedMs, timestamp);
-  renderSpeed(smoothedSpeedMs);
-
-  if (typeof coords.accuracy === 'number') {
-    accuracyText.textContent = `±${coords.accuracy.toFixed(0)} m`;
-    accuracyIcon.classList.remove('quality-1', 'quality-2', 'quality-3');
-    if (coords.accuracy <= 6) accuracyIcon.classList.add('quality-3');
-    else if (coords.accuracy <= 12) accuracyIcon.classList.add('quality-2');
-    else accuracyIcon.classList.add('quality-1');
+  if (wasGpsUnavailable) {
+    lastAccelSpeedMs = smoothedSpeedMs;
+    lastAccelSpeedTime = timestamp;
+    smoothAccelToward(0, performance.now());
+    renderAccel(smoothedAccelG);
+  } else {
+    updateGpsAcceleration(smoothedSpeedMs, timestamp);
   }
+  renderSpeed(smoothedSpeedMs);
 
   void fetchWeather(coords.latitude, coords.longitude);
   updateInfoPanel();
-  setStatus('GPS activo', 'ok');
+  setStatus(typeof coords.accuracy === 'number' && coords.accuracy > GPS_WARN_ACCURACY_M ? 'GPS débil' : 'GPS activo', 'ok');
 }
 
 function handleError(err) {
@@ -647,8 +717,9 @@ let filteredGravityY = null;
 // En moto el acelerómetro físico recoge demasiada vibración. Para aceleración
 // usamos diferencia de velocidad; para inclinación priorizamos DeviceOrientation,
 // que en iPhone suele venir de la fusión de sensores del sistema.
-const LEAN_TAU = 0.65;
-const ACCEL_GPS_TAU = 0.9;
+const LEAN_TAU = 0.45;
+const ACCEL_ATTACK_TAU = 0.18;
+const ACCEL_RELEASE_TAU = 0.95;
 const MOTION_RENDER_MS = 250;
 let lastMotionRenderTime = 0;
 
@@ -944,7 +1015,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   window.addEventListener('load', () => {
     // updateViaCache: 'none' obliga al navegador a comprobar siempre contra
     // el servidor si sw.js ha cambiado, en vez de fiarse de la caché HTTP.
-    navigator.serviceWorker.register('sw.js?v=0.9.3', { updateViaCache: 'none' }).catch((err) => {
+    navigator.serviceWorker.register('sw.js?v=0.9.4', { updateViaCache: 'none' }).catch((err) => {
       console.warn('No se pudo registrar el Service Worker:', err);
     });
   });
